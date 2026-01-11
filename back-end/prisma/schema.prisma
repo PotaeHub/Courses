@@ -14,6 +14,13 @@ datasource db {
 }
 
 // ==================== ENUM ====================
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum Role {
   STUDENT
   TEACHER
@@ -119,8 +126,9 @@ model Course {
   image       String?
   price       Float
   type        CourseType?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status      CourseStatus @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   lessons     Lesson[]
   enrollments Enrollment[]
@@ -134,15 +142,22 @@ model Lesson {
 
   title    String
   content  String
-  videoUrl String?
 
   sortOrder Int //  ลำดับบทเรียน
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course   Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course   Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId Int
   progress Progress[]
+  videos   LessonVideo[]
+}
+
+model LessonVideo {
+  id       Int    @id @default(autoincrement())
+  url      String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lessonId Int
 }
 
 // ==================== ENROLLMENT ====================
@@ -151,10 +166,10 @@ model Enrollment {
   user   User @relation(fields: [userId], references: [id])
   userId Int
 
-  course     Course   @relation(fields: [courseId], references: [id])
+  course     Course           @relation(fields: [courseId], references: [id])
   courseId   Int
-  status     String
-  enrolledAt DateTime @default(now())
+  status     EnrollmentStatus @default(ENROLLED)
+  enrolledAt DateTime         @default(now())
 
   @@unique([userId, courseId])
 }
@@ -171,7 +186,8 @@ model Payment {
   amount        Float
   status        PaymentStatus @default(PENDING)
   transactionId String?
-  paymentDate   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
 }
 
 // ==================== REVIEW ====================

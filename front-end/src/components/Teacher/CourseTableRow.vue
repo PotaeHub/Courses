@@ -1,34 +1,58 @@
 <script setup>
 import { Edit3, BarChart2, Trash2, Users, Star, MoreHorizontal } from 'lucide-vue-next'
 
-defineProps({
-    course: Object
+const props = defineProps({
+    course: {
+        type: Object,
+        default: () => ({})
+    }
 })
 
-const getStatusClass = (status) => {
-    switch (status) {
-        case 'Published': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
-        case 'Draft': return 'bg-amber-50 text-amber-600 border-amber-100'
-        case 'Archived': return 'bg-slate-100 text-slate-500 border-slate-200'
-        default: return 'bg-slate-50 text-slate-500'
+const emit = defineEmits(['view', 'edit', 'delete'])
+
+
+const getCourseImage = (image) => {
+    if (!image) return null
+    return import.meta.env.VITE_BACKEND_URL + image
+}
+
+const getStatusClass = (status = '') => {
+    switch (status.toUpperCase()) {
+        case 'PUBLISHED':
+            return 'bg-green-100 text-green-700 border border-green-200'
+
+        case 'DRAFT':
+            return 'bg-blue-50 text-blue-700 border border-blue-100'
+
+        case 'ARCHIVED':
+            return 'bg-gray-100 text-gray-600 border border-gray-200'
+
+        default:
+            return 'bg-slate-50 text-slate-500 border border-slate-100'
     }
 }
+
 </script>
 
 <template>
     <tr class="group hover:bg-slate-50/50 transition-all duration-300">
         <td class="px-8 py-5">
             <div class="flex items-center gap-4">
-                <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl shadow-sm">
-                    <img :src="course.image"
-                        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div class="w-16 h-12 rounded-xl overflow-hidden bg-slate-100 shadow-sm">
+                    <img v-if="getCourseImage(course.image)" :src="getCourseImage(course.image)"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <div v-else
+                        class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400">
+                        NO IMAGE
+                    </div>
                 </div>
                 <div class="min-w-0">
                     <p
                         class="font-black text-slate-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
                         {{ course.name }}
                     </p>
-                    <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">ID: #{{ course.id }}
+                    <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">ID: #{{
+                        course.id }}
                     </p>
                 </div>
             </div>
@@ -70,11 +94,11 @@ const getStatusClass = (status) => {
                 </button>
                 <button
                     class="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                    title="Analytics">
+                    title="Analytics" @click="emit('edit', course)">
                     <BarChart2 :size="18" />
                 </button>
                 <button class="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                    title="Delete">
+                    title="Delete" @click="emit('delete', course)">
                     <Trash2 :size="18" />
                 </button>
             </div>

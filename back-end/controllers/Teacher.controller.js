@@ -1,38 +1,407 @@
 import prisma, { PaymentStatus } from '../config/db.js';
+import { asyncHandler } from "../middlewares/asyncHandler.js";
+import AppError from '../utils/AppError.js';
+import { deleteFileIfExists } from '../utils/deleteFile.js'
 // Teacher Dashboard 
-export const getTeacherDashboard = async (req, res) => {
-    try {
-        const teacherId = req.user.id
+export const getTeacherDashboard = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id
 
-        const courses = await prisma.course.count({
+    const [
+        courses,
+        students,
+        earnings
+    ] = await Promise.all([
+        prisma.course.count({
             where: { teacherId }
-        })
-
-        const students = await prisma.enrollment.count({
+        }),
+        prisma.enrollment.count({
             where: {
                 course: { teacherId }
             }
-        })
-
-        const earnings = await prisma.payment.aggregate({
+        }),
+        prisma.payment.aggregate({
             _sum: { amount: true },
             where: {
                 course: { teacherId },
                 status: PaymentStatus.COMPLETED
             }
         })
+    ])
 
-        res.json({
-            success: true,
+    res.json({
+        success: true,
+        data: {
+            courses,
+            students,
+            earnings: earnings._sum.amount ?? 0
+        }
+    })
+})
+
+export const getTeacherCourses = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id
+
+    const courses = await prisma.course.findMany({
+        where: { teacherId },
+        select: {
+            id: true,
+            title: true,
+            description: true,
+            image: true,
+            price: true,
+            status: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+            _count: { select: { enrollments: true, reviews: true } },
+            reviews: { select: { rating: true } },
+            lessons: {
+                select: {
+                    id: true,
+                    title: true,
+                    content: true,
+                    sortOrder: true,
+                    videos: {
+                        select: { id: true, url: true }
+                    }
+                },
+                orderBy: { sortOrder: 'asc' }
+            }
+        }
+    })
+
+
+    const formatted = courses.map(course => {
+        const avgRating =
+            course.reviews.length === 0
+                ? null
+                : (course.reviews.reduce((s, r) => s + r.rating, 0) / course.reviews.length).toFixed(1)
+
+        return {
+            id: course.id,
+            name: course.title,
+            description: course.description,
+            image: course.image,
+            price: course.price,
+            status: course.status,
+            category: course.category?.name ?? null,
+            students: course._count.enrollments,
+            rating: avgRating,
+            sales: course._count.enrollments,
+            lessons: course.lessons.map(l => ({
+                ...l,
+                videoUrl: l.videoUrl
+                    ? `${process.env.VITE_BACKEND_URL}/${l.videoUrl.replace(/^\/+/, '')}`
+                    : null
+            }))
+        }
+    })
+
+    res.json({
+        success: true,
+        data: formatted
+    })
+})
+// ตัวอย่างสำหรับ getIDCourses
+export const getIDCourses = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (isNaN(id)) throw new AppError("ID not Number", 402);
+
+    const course = await prisma.course.findUnique({
+        where: { id: Number(id) },
+        include: {
+            lessons: { orderBy: { sortOrder: 'asc' } },
+            category: true,
+            teacher: { select: { id: true, name: true } }
+        }
+    });
+
+    if (!course) throw new AppError("Course not Found!", 401);
+
+    // แปลง videoUrl ของแต่ละ lesson
+    const lessonsWithVideos = course.lessons.map(l => ({
+        ...l,
+        videos: Array.isArray(l.videoUrl)
+            ? l.videoUrl.map((v, idx) => ({ id: idx, url: `${process.env.VITE_BACKEND_URL}${v}` }))
+            : []
+    }));
+
+    res.status(200).json({
+        success: true,
+        message: "Courses ID Okay!",
+        course: {
+            ...course,
+            lessons: lessonsWithVideos
+        }
+    });
+});
+
+// export const getAllCourses = asyncHandler(async (req, res) => {
+//     const course = await prisma.course.findMany({
+//         include: {
+//             lessons: true
+//         }
+//     })
+//     if (!course) AppError("Couse not Found!", 400);
+//     res.status(200).json({
+//         success: true,
+//         course
+//     })
+// })
+// Create Course
+export const createTeacherCourse = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id
+    const { title, description, price, status, categoryId } = req.body
+
+    if (!title || price === undefined) throw new AppError('Title and price are required', 400)
+    const courseStatus = ['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(status) ? status : 'DRAFT'
+
+    const imageFile = req.files?.find(f => f.fieldname === 'image')
+    const imageUrl = imageFile ? `/uploads/courses/images/${imageFile.filename}` : null
+
+    const lessons = req.body.lessons ? JSON.parse(req.body.lessons) : []
+
+    const createdCourse = await prisma.$transaction(async (tx) => {
+        const course = await tx.course.create({
             data: {
-                courses,
-                students,
-                earnings: earnings._sum.amount || 0
+                title,
+                description,
+                price: Number(price),
+                status: courseStatus,
+                image: imageUrl,
+                categoryId: categoryId ? Number(categoryId) : null,
+                teacherId,
+            },
+        });
+
+        for (let i = 0; i < lessons.length; i++) {
+            const lesson = lessons[i];
+
+            const lessonCreated = await tx.lesson.create({
+                data: {
+                    courseId: course.id,
+                    title: lesson.title,
+                    content: lesson.content ?? '',
+                    sortOrder: i + 1
+                },
+            });
+
+            // สร้าง LessonVideo
+            const videoFiles = req.files.filter(f => f.fieldname === `video_lesson_${i}`)
+            for (const f of videoFiles) {
+                await tx.lessonVideo.create({
+                    data: {
+                        lessonId: lessonCreated.id,
+                        url: `/uploads/lessons/videos/${f.filename}`
+                    }
+                });
+            }
+        }
+
+        return tx.course.findUnique({
+            where: { id: course.id },
+            include: { lessons: { include: { videos: true }, orderBy: { sortOrder: 'asc' } }, category: true },
+        });
+    });
+
+
+    res.status(200).json({ success: true, data: createdCourse })
+})
+export const updateTeacherCourse = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id
+    const courseId = Number(req.params.id)
+    if (isNaN(courseId)) throw new AppError("Invalid course ID", 400)
+
+    const { title, description, price, status, categoryId } = req.body
+    const courseStatus = ['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(status) ? status : 'DRAFT'
+
+    // หา course เดิมพร้อม lessons + videos
+    const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: { lessons: { include: { videos: true } } }
+    })
+    if (!course || course.teacherId !== teacherId)
+        throw new AppError("Course not found or unauthorized", 404)
+
+    // ถ้ามี cover ใหม่
+    const imageFile = req.files?.find(f => f.fieldname === 'image')
+    const newImageUrl = imageFile ? `/uploads/courses/images/${imageFile.filename}` : course.image
+
+    const lessons = req.body.lessons ? JSON.parse(req.body.lessons) : []
+    const oldLessonMap = new Map(course.lessons.map(l => [l.id, l]))
+
+    const updatedCourse = await prisma.$transaction(async (tx) => {
+        // update course info
+        await tx.course.update({
+            where: { id: courseId },
+            data: {
+                title,
+                description,
+                price: Number(price),
+                status: courseStatus,
+                image: newImageUrl,
+                categoryId: categoryId ? Number(categoryId) : null
             }
         })
+
+        // --- DELETE lessons ที่ถูกลบใน front ---
+        const remainingLessonIds = lessons.filter(l => l.id).map(l => Number(l.id))
+        const toDeleteLessons = course.lessons.filter(l => !remainingLessonIds.includes(l.id))
+        for (const l of toDeleteLessons) {
+            await tx.lessonVideo.deleteMany({ where: { lessonId: l.id } }) // ลบ video ก่อน
+            await tx.lesson.delete({ where: { id: l.id } })
+        }
+
+        // update หรือ create lessons ใหม่
+        for (let i = 0; i < lessons.length; i++) {
+            const lesson = lessons[i];
+            const oldLesson = lesson.id ? oldLessonMap.get(Number(lesson.id)) : null;
+
+            let lessonUpdated;
+            if (lesson.id) {
+                lessonUpdated = await tx.lesson.update({
+                    where: { id: Number(lesson.id) },
+                    data: {
+                        title: lesson.title,
+                        content: lesson.content ?? '',
+                        sortOrder: i + 1
+                    }
+                });
+
+                // ลบ video เก่า ถ้า frontend ส่ง flag replace
+                const replaceFlag = req.body[`replace_video_lesson_${i}`]
+                if (replaceFlag) {
+                    await tx.lessonVideo.deleteMany({ where: { lessonId: lessonUpdated.id } })
+                }
+            } else {
+                lessonUpdated = await tx.lesson.create({
+                    data: {
+                        courseId,
+                        title: lesson.title,
+                        content: lesson.content ?? '',
+                        sortOrder: i + 1
+                    }
+                });
+            }
+
+            // Add new videos
+            const videoFiles = req.files.filter(f => f.fieldname === `video_lesson_${i}`)
+            for (const f of videoFiles) {
+                await tx.lessonVideo.create({
+                    data: {
+                        lessonId: lessonUpdated.id,
+                        url: `/uploads/lessons/videos/${f.filename}`
+                    }
+                });
+            }
+        }
+
+
+        return tx.course.findUnique({
+            where: { id: courseId },
+            include: { lessons: { include: { videos: true }, orderBy: { sortOrder: 'asc' } }, category: true }
+        })
+    })
+
+
+    res.json({ success: true, data: updatedCourse })
+})
+
+export const getTeacherProfile = async (req, res) => {
+    try {
+        const teacherId = req.user.id // assume you have auth middleware
+        const teacher = await prisma.user.findUnique({
+            where: { id: teacherId },
+            include: {
+                teacherProfile: true,
+                coursesTaught: true
+            }
+        })
+
+        if (!teacher) return res.status(404).json({ message: 'Teacher not found' })
+
+        res.json(teacher)
     } catch (err) {
         console.error(err)
-        res.status(500).json({ success: false, message: err.message })
+        res.status(500).json({ message: 'Server error' })
     }
 }
-// Teacher My Courses
+export const updateTeacherProfile = async (req, res) => {
+    try {
+        const teacherId = req.user.id
+        const { name, subject, experience, phone } = req.body
+        let imageUrl = undefined
+
+        // ถ้ามีรูปให้เก็บ path
+        if (req.file) {
+            imageUrl = `/uploads/courses/images/${req.file.filename}` // path ตาม Multer setup
+        }
+
+        // update teacher user
+        await prisma.user.update({
+            where: { id: teacherId },
+            data: {
+                name,
+                ...(imageUrl && { image: imageUrl }) // update image ถ้ามี
+            }
+        })
+
+        // update หรือสร้าง teacherProfile
+        const profile = await prisma.teacherProfile.upsert({
+            where: { userId: teacherId },
+            update: { subject, experience: Number(experience), phone },
+            create: { userId: teacherId, subject, experience: Number(experience), phone }
+        })
+
+        // return ข้อมูลล่าสุด
+        const updatedTeacher = await prisma.user.findUnique({
+            where: { id: teacherId },
+            include: { teacherProfile: true, coursesTaught: true }
+        })
+
+        res.json({ message: 'Profile updated', teacher: updatedTeacher })
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Server error' })
+    }
+}
+
+export const removeCourse = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const course = await prisma.course.findUnique({
+        where: { id: Number(id) }
+    })
+    if (!course) {
+        throw new AppError("Course not found.", 404);
+    }
+    const deletedCourse = await prisma.course.delete({
+        where: {
+            id: Number(id)
+        },
+        select: {
+            id: true,
+            title: true,
+            description: true,
+            image: true,
+            price: true,
+            type: true,
+            categoryId: true,
+            createdAt: true,
+            updatedAt: true,
+            lessons: true
+        }
+    })
+    res.status(200).json({
+        success: true,
+        message: "Course deleted successfully",
+        course: deletedCourse
+    });
+})
+
+//  Teacher Categories
+export const getCategories = asyncHandler(async (req, res) => {
+    const categories = await prisma.category.findMany();
+    res.json({
+        success: true,
+        data: categories
+    });
+});

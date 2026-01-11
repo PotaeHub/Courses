@@ -353,56 +353,75 @@ export const getIDCourses = asyncHandler(async (req, res) => {
     })
 })
 export const createCourseWithLessons = asyncHandler(async (req, res) => {
-    const { title, description, price, type, categoryId, lessons } = req.body;
+    const {
+        title,
+        description,
+        price,
+        type,
+        categoryId,
+        lessons
+    } = req.body
 
-    // ไฟล์
-    const image = req.files?.image?.[0];
-    const lessonVideos = req.files?.lessonVideos || [];
-    console.log("Image filename:", image?.filename);
-    lessonVideos.forEach((v, i) => console.log(`Video ${i}:`, v.filename, v.originalname));
+    /* ================= FILES ================= */
+    const image = req.files?.image?.[0] || null
+    const lessonVideos = req.files?.lessonVideos || []
 
-    // Validation
-    if (!title || price === undefined) throw new AppError("Title and price are required.", 400);
-    if (isNaN(price)) throw new AppError("Price must be a number.", 400);
-
-    // Category
-    let category = null;
-    if (categoryId) {
-        category = await prisma.category.findUnique({ where: { id: Number(categoryId) } });
-        if (!category) throw new AppError("Category not found.", 400);
+    /* ================= VALIDATION ================= */
+    if (!title || price === undefined) {
+        throw new AppError("Title and price are required.", 400)
     }
 
-    // Image URL
-    const imageUrl = image ? `/uploads/images/${image.filename}` : null;
+    if (isNaN(price)) {
+        throw new AppError("Price must be a number.", 400)
+    }
 
-    // Parse lessons
-    let lessonArray = [];
-    if (lessons) {
-        try {
-            lessonArray = JSON.parse(lessons);
-            if (!Array.isArray(lessonArray)) throw new AppError("Lessons must be an array", 400);
-        } catch (error) {
-            throw new AppError("Invalid lessons format", 400);
+    /* ================= CATEGORY ================= */
+    let category = null
+    if (categoryId) {
+        category = await prisma.category.findUnique({
+            where: { id: Number(categoryId) }
+        })
+
+        if (!category) {
+            throw new AppError("Category not found.", 400)
         }
     }
 
-    // Map video file ของแต่ละ lesson
-    lessonArray = lessonArray.map((lesson, i) => {
-        const videoFile = lessonVideos.find(f => f.originalname === lesson.videoFileName);
+    /* ================= IMAGE ================= */
+    // 🔹 ต้องตรงกับ multer
+    const imageUrl = image
+        ? `/uploads/courses/images/${image.filename}`
+        : null
+
+    /* ================= PARSE LESSONS ================= */
+    let lessonArray = []
+
+    if (lessons) {
+        try {
+            lessonArray = JSON.parse(lessons)
+            if (!Array.isArray(lessonArray)) {
+                throw new Error()
+            }
+        } catch {
+            throw new AppError("Invalid lessons format", 400)
+        }
+    }
+
+    /* ================= MAP LESSON + VIDEO ================= */
+    const lessonsData = lessonArray.map((lesson, index) => {
+        const videoFile = lessonVideos[index] || null
+
         return {
-            ...lesson,
-            videoUrl: videoFile ? `/uploads/videos/${videoFile.filename}` : null
-        };
-    });
+            title: lesson.title,
+            content: lesson.content ?? null,
+            sortOrder: lesson.sortOrder ?? index + 1,
+            videoUrl: videoFile
+                ? `/uploads/lessons/videos/${videoFile.filename}`
+                : null
+        }
+    })
 
-    // Debug final
-    // console.log("=== req.body ===", req.body);
-    // console.log("=== req.files ===", req.files);
-    // console.log("Image file:", image);
-    // console.log("Lesson videos:", lessonVideos);
-    // console.log("Parsed lessons:", lessonArray);
-
-    // Create course
+    /* ================= CREATE COURSE ================= */
     const course = await prisma.course.create({
         data: {
             title,
@@ -410,27 +429,26 @@ export const createCourseWithLessons = asyncHandler(async (req, res) => {
             image: imageUrl,
             price: Number(price),
             type,
-            categoryId: category ? category.id : null,
-            teacherId: req.user?.id || null,
-            lessons: lessonArray.length
-                ? {
-                    create: lessonArray.map((lesson, i) => ({
-                        title: lesson.title,
-                        content: lesson.content,
-                        sortOrder: lesson.sortOrder ?? i + 1,
-                        videoUrl: lesson.videoUrl || null
-                    }))
-                }
+            categoryId: category?.id ?? null,
+            teacherId: req.user?.id ?? null,
+
+            lessons: lessonsData.length
+                ? { create: lessonsData }
                 : undefined
         },
-        include: { lessons: { orderBy: { sortOrder: "asc" } } }
-    });
+        include: {
+            lessons: { orderBy: { sortOrder: "asc" } },
+            category: true
+        }
+    })
 
-    res.status(200).json({
+    res.status(201).json({
+        success: true,
         message: "Course created successfully",
-        course
-    });
-});
+        data: course
+    })
+})
+
 export const updateCourseWithLessons = asyncHandler(async (req, res) => {
     const courseId = Number(req.params.id);
     if (isNaN(courseId)) throw new AppError("ID must be a number", 400);
@@ -447,10 +465,13 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
 
     const image = req.files?.image?.[0];
     const lessonVideos = req.files?.lessonVideos || [];
+    const validTypes = ['GENERAL', 'POPULAR', 'PACKAGE'];
 
     if (!title || price === undefined) throw new AppError("Title and price are required.", 400);
     if (isNaN(price)) throw new AppError("Price must be a number.", 400);
-
+    if (type && !validTypes.includes(type)) {
+        throw new AppError("Invalid course type", 400);
+    }
     // category
     let category = null;
     if (categoryId) {
@@ -480,13 +501,17 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
         : [];
 
     const updatedCourse = await prisma.$transaction(async (tx) => {
-        const course = await tx.course.findUnique({ where: { id: courseId } });
-        if (!course) throw new AppError("Course not found", 404);
-
+        const course = await tx.course.findUnique({
+            where: { id: courseId }
+        });
+        if (!course || course.teacherId !== req.user.id) {
+            throw new AppError("You are not allowed to edit this course", 403);
+        }
         // image
         const imageUrl = image
-            ? `/uploads/images/${image.filename}`
-            : course.image;
+            ? `/uploads/courses/images/${image.filename}`
+            : course.image
+
 
         // update course only
         await tx.course.update({
@@ -519,8 +544,8 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
             );
 
             const videoUrl = lessonVideo
-                ? `/uploads/videos/${lessonVideo.filename}`
-                : lesson.videoUrl || null;
+                ? `/uploads/lessons/videos/${lessonVideo.filename}`
+                : lesson.videoUrl || null
 
             if (lesson.id) {
                 await tx.lesson.update({
@@ -644,7 +669,7 @@ export const getRevenueChart = async (req, res) => {
         },
         select: {
             amount: true,
-            paymentDate: true
+            createdAt: true
         }
     })
 

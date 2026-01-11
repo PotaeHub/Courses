@@ -3,12 +3,13 @@ import { ref } from 'vue'
 import { Plus, Users, BookOpen, Star, GraduationCap } from 'lucide-vue-next'
 import TeacherCourseCard from '../../components/Teacher/TeacherCourseCard.vue'
 import TeacherStudentActivity from '../../components/Teacher/TeacherStudentActivity.vue'
+import StatCard from '../../components/Admin/StatCard.vue'
+import RevenueChart from '../../components/Admin/RevenueChart.vue'
 
 const courses = ref([
     { id: 1, name: 'Advanced Vue.js Design Patterns', students: '1.2k', rating: 4.9, status: 'Published', lastUpdated: '2 days ago', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=600' },
     { id: 2, name: 'Fullstack Laravel & Nuxt 3', students: '840', rating: 4.8, status: 'Published', lastUpdated: '5 days ago', image: 'https://images.unsplash.com/photo-1587620962725-abab7fe55159?q=80&w=600' },
 ])
-
 const recentStudents = ref([
     { name: 'Alex Johnson', course: 'Vue.js Patterns', time: '2m ago', online: true },
     { name: 'Sarah Connor', course: 'Fullstack Laravel', time: '15m ago', online: false },

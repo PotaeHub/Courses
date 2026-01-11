@@ -3,12 +3,11 @@ import { useRoute } from 'vue-router'
 import {
     Bell,
     Search,
-    LogOut,
-    User,
-    Settings,
     ChevronRight
 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import TeacherProfileModal from '../components/Teacher/TeacherProfileModal.vue'
+import api from '../service/api.js'
 
 const route = useRoute()
 
@@ -17,6 +16,32 @@ const pageTitle = computed(() => {
     return path ? path.charAt(0).toUpperCase() + path.slice(1) : 'Dashboard'
 })
 
+// state popup
+const showProfileModal = ref(false)
+const openProfile = () => showProfileModal.value = true
+const closeProfile = () => showProfileModal.value = false
+const refreshProfile = () => fetchTeacherProfile()
+
+// เก็บข้อมูล teacher
+const teacher = ref({
+    name: 'Admin Account',
+    status: 'Online',
+    image: null
+})
+
+// ดึงข้อมูล teacher
+const fetchTeacherProfile = async () => {
+    try {
+        const res = await api.get('/teacher/profile')
+        teacher.value.name = res.data.name || 'Teacher'
+        teacher.value.image = res.data.image || null
+        teacher.value.status = 'Online'
+    } catch (err) {
+        console.error(err)
+    }
+}
+
+onMounted(fetchTeacherProfile)
 </script>
 
 <template>
@@ -49,24 +74,30 @@ const pageTitle = computed(() => {
                         class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
                 </button>
 
-                <div class="flex items-center gap-3 ml-2 group cursor-pointer">
+                <div class="flex items-center gap-3 ml-2 group cursor-pointer" @click="openProfile">
                     <div class="flex flex-col items-end hidden sm:flex">
-                        <span class="text-xs font-black text-slate-800 leading-none mb-1">Admin Account</span>
-                        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">Online</span>
+                        <span class="text-xs font-black text-slate-800 leading-none mb-1">{{ teacher.name }}</span>
+                        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">{{
+                            teacher.status }}</span>
                     </div>
                     <div
                         class="w-10 h-10 rounded-2xl bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden group-hover:border-blue-100 transition-all">
-                        <User class="text-slate-400 w-6 h-6" />
+                        <!-- ถ้ามีรูปจริง ให้แสดง -->
+                        <img v-if="teacher.image" :src="teacher.image" class="w-10 h-10 object-cover rounded-2xl" />
+                        <!-- ถ้าไม่มีรูป แสดงไอคอน User -->
+                        <User v-else class="text-slate-400 w-6 h-6" />
                     </div>
                 </div>
-                
+
             </div>
         </div>
     </nav>
+
+    <!-- Teacher Profile Popup -->
+    <TeacherProfileModal :show="showProfileModal" @close="closeProfile" @updated="refreshProfile" />
 </template>
 
 <style scoped>
-/* ค่อยๆ แสดงผลเมื่อเข้ามา */
 nav {
     animation: fadeInDown 0.5s ease-out;
 }

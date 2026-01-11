@@ -11,6 +11,7 @@ import TeacherLayout from '../layouts/TeacherLayout.vue';
 import TeacherDashboard from '../pages/teacher/TeacherDashboard.vue';
 import TeacherMycourse from '../pages/teacher/TeacherMycourse.vue';
 import TeacherStudentsView from '../pages/teacher/TeacherStudentsView.vue';
+import TeacherProfile from '../pages/teacher/TeacherProfile.vue';
 
 const routes = [
     { path: '/', component: Home },
@@ -34,7 +35,7 @@ const routes = [
             { path: 'courses', component: TeacherMycourse },
             { path: 'students', component: TeacherStudentsView },
             // { path: 'earnings', component: TeacherEarnings },
-            // { path: 'profile', component: TeacherProfile },
+            { path: 'profile', component: TeacherProfile },
         ]
     }
 

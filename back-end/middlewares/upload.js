@@ -1,33 +1,47 @@
-import multer from 'multer';
-import path from "path";
-import fs from "fs";
-const storage = multer.diskStorage({
-    // destination โฟลเดอร์เก็บไฟล์
-    destination: (req, file, cb) => {
-        const type = file.mimetype.startsWith("image/") ? "images/" : "videos/";
-        const dir = `uploads/${type}`;
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
+import multer from "multer"
+import fs from "fs"
+import path from "path"
 
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        let dir = 'uploads/misc'
+
+        if (file.fieldname === 'image') {
+            dir = 'uploads/courses/images'
+        }
+
+        if (file.fieldname.startsWith('video_lesson_')) {
+            dir = 'uploads/lessons/videos'
+        }
+
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true })
+        }
+
+        cb(null, dir)
     },
-    // filename ตั้งชื่อไฟล์ใหม่
+
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-        cb(null, uniqueSuffix + '-' + file.originalname)
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9)
+        const ext = path.extname(file.originalname)
+        cb(null, `${unique}${ext}`)
     }
-}
-)
-// กรองชนิดไฟล์ (สำคัญมาก)
+})
+
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
-        cb(null, true);
+    if (
+        file.mimetype.startsWith('image/') ||
+        file.mimetype.startsWith('video/')
+    ) {
+        cb(null, true)
     } else {
-        cb(new Error("Only image and video files are allowed"), false);
+        cb(new Error('Only image or video allowed'), false)
     }
 }
+
 export const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
+    storage,
+    fileFilter,
     limits: {
         fileSize: 1024 * 1024 * 500 // 500MB
     }
