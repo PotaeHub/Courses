@@ -52,7 +52,8 @@ const logout = () => {
 
 <template>
     <aside
-        class="w-72 min-h-screen bg-[#0F172A] text-slate-300 p-6 flex flex-col border-r border-slate-800 relative overflow-hidden">
+        class="w-72 bg-[#0F172A] text-slate-300 p-6 flex flex-col border-r border-slate-800 relative overflow-auto max-h-[90vh]">
+
         <!-- Glow -->
         <div
             class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-blue-600/10 to-transparent pointer-events-none" />
@@ -76,8 +77,8 @@ const logout = () => {
             <RouterLink v-for="item in menuItems" :key="item.path" :to="item.path"
                 class="group relative flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300"
                 :class="isActive(item.path)
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                        : 'hover:bg-slate-800/60 hover:text-white'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'hover:bg-slate-800/60 hover:text-white'
                     ">
                 <div class="flex items-center gap-3">
                     <component :is="item.icon" :size="20" :stroke-width="isActive(item.path) ? 2.5 : 2"

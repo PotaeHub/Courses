@@ -23,7 +23,7 @@ export const login = asyncHandler(async (req, res) => {
         role: user.role,
         email: user.email
     }
-    const accessToken = jwt.sign(payload, process.env.ACCSSES_TOKEN, { expiresIn: "15m" });
+    const accessToken = jwt.sign(payload, process.env.ACCSSES_TOKEN, { expiresIn: "1d" });
     const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN, { expiresIn: "7d" });
 
     res.cookie("refreshToken", refreshToken, {
@@ -108,7 +108,6 @@ export const register = asyncHandler(async (req, res) => {
         if (role === "TEACHER") {
             await tx.teacherProfile.create({
                 data: {
-
                     userId: newUser.id,
                     subject,
                     experience,

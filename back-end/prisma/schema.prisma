@@ -62,11 +62,12 @@ model User {
   adminProfile   AdminProfile?
 
   // Relations
-  coursesTaught Course[]     @relation("TeacherCourses")
-  enrollments   Enrollment[]
-  payments      Payment[]
-  reviews       Review[]
-  progress      Progress[]
+  coursesTaught  Course[]        @relation("TeacherCourses")
+  enrollments    Enrollment[]
+  payments       Payment[]
+  reviews        Review[]
+  progress       Progress[]
+  studentCourses StudentCourse[]
 }
 
 // ==================== STUDENT PROFILE ====================
@@ -130,18 +131,19 @@ model Course {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  lessons     Lesson[]
-  enrollments Enrollment[]
-  payments    Payment[]
-  reviews     Review[]
+  lessons        Lesson[]
+  enrollments    Enrollment[]
+  payments       Payment[]
+  reviews        Review[]
+  studentCourses StudentCourse[]
 }
 
 // ==================== LESSON ====================
 model Lesson {
   id Int @id @default(autoincrement())
 
-  title    String
-  content  String
+  title   String
+  content String
 
   sortOrder Int //  ลำดับบทเรียน
   createdAt DateTime @default(now())
@@ -166,10 +168,11 @@ model Enrollment {
   user   User @relation(fields: [userId], references: [id])
   userId Int
 
-  course     Course           @relation(fields: [courseId], references: [id])
-  courseId   Int
-  status     EnrollmentStatus @default(ENROLLED)
-  enrolledAt DateTime         @default(now())
+  course        Course           @relation(fields: [courseId], references: [id])
+  courseId      Int
+  status        EnrollmentStatus @default(ENROLLED)
+  enrolledAt    DateTime         @default(now())
+  StudentCourse StudentCourse[]
 
   @@unique([userId, courseId])
 }
@@ -218,4 +221,16 @@ model Progress {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, lessonId])
+}
+
+model StudentCourse {
+  id           Int        @id @default(autoincrement())
+  student      User       @relation(fields: [studentId], references: [id])
+  studentId    Int
+  course       Course     @relation(fields: [courseId], references: [id])
+  courseId     Int
+  progress     Int
+  joinedAt     DateTime   @default(now())
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  enrollmentId Int
 }

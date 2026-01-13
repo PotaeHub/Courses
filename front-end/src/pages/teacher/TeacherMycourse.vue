@@ -62,14 +62,19 @@ onMounted(() => {
 })
 const filteredCourses = computed(() => {
     return courses.value.filter(c => {
-        const matchSearch =
-            c.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ?? true
+        // 1. ตรวจสอบการค้นหา (ตรวจสอบทั้งชื่อคอร์ส และ เผื่อกรณี API ส่งมาเป็น c.title)
+        const name = c.name || c.title || '';
+        const matchSearch = name.toLowerCase().includes(searchQuery.value.toLowerCase());
+
+        // 2. ตรวจสอบ Category 
+        // ต้องเช็คว่า c.category เป็น String หรือเป็น Object ที่มี name อยู่ข้างใน
+        const courseCategoryName = typeof c.category === 'object' ? c.category?.name : c.category;
 
         const matchCategory =
             activeTab.value === 'All' ||
-            c.category === activeTab.value
+            courseCategoryName === activeTab.value;
 
-        return matchSearch && matchCategory
+        return matchSearch && matchCategory;
     })
 })
 </script>

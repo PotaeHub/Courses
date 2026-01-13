@@ -3,40 +3,39 @@ import { asyncHandler } from "../middlewares/asyncHandler.js";
 import AppError from '../utils/AppError.js';
 import { deleteFileIfExists } from '../utils/deleteFile.js'
 // Teacher Dashboard 
-export const getTeacherDashboard = asyncHandler(async (req, res) => {
-    const teacherId = req.user.id
+export const getDashboard = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id;
+    if (!teacherId) throw new Error("Teacher ID not found");
 
-    const [
-        courses,
-        students,
-        earnings
-    ] = await Promise.all([
-        prisma.course.count({
-            where: { teacherId }
-        }),
-        prisma.enrollment.count({
-            where: {
-                course: { teacherId }
-            }
-        }),
-        prisma.payment.aggregate({
-            _sum: { amount: true },
-            where: {
-                course: { teacherId },
-                status: PaymentStatus.COMPLETED
-            }
-        })
-    ])
+    const courses = await prisma.course.findMany({
+        where: { teacherId },
+        include: { payments: true, enrollments: true }
+    });
+
+    const totalCourses = courses.length;
+
+    const studentIds = new Set();
+    courses.forEach(c => c.enrollments.forEach(e => studentIds.add(e.userId)));
+    const totalStudents = studentIds.size;
+
+    const totalEarnings = courses.reduce(
+        (sum, c) => sum + c.payments.reduce((s, p) => s + p.amount, 0),
+        0
+    );
 
     res.json({
-        success: true,
-        data: {
-            courses,
-            students,
-            earnings: earnings._sum.amount ?? 0
-        }
-    })
-})
+        totalCourses,
+        totalStudents,
+        totalEarnings,
+        courses: courses.map(c => ({
+            id: c.id,
+            title: c.title,
+            students: c.enrollments.length,
+            earnings: c.payments.reduce((s, p) => s + p.amount, 0)
+        }))
+    });
+});
+
 
 export const getTeacherCourses = asyncHandler(async (req, res) => {
     const teacherId = req.user.id
@@ -83,19 +82,22 @@ export const getTeacherCourses = asyncHandler(async (req, res) => {
             image: course.image,
             price: course.price,
             status: course.status,
-            category: course.category?.name ?? null,
+            category: course.category
+                ? { id: course.category.id, name: course.category.name }
+                : null,
             students: course._count.enrollments,
             rating: avgRating,
             sales: course._count.enrollments,
             lessons: course.lessons.map(l => ({
                 ...l,
-                videoUrl: l.videoUrl
-                    ? `${process.env.VITE_BACKEND_URL}/${l.videoUrl.replace(/^\/+/, '')}`
+                videoUrl: l.videos[0]?.url
+                    ? `${process.env.VITE_BACKEND_URL}/${l.videos[0].url.replace(/^\/+/, '')}`
                     : null
             }))
+
         }
     })
-
+    console.log('Backend formatted course:', formatted)
     res.json({
         success: true,
         data: formatted
@@ -308,17 +310,16 @@ export const updateTeacherCourse = asyncHandler(async (req, res) => {
 
 export const getTeacherProfile = async (req, res) => {
     try {
-        const teacherId = req.user.id // assume you have auth middleware
+        const teacherId = req.user.id
         const teacher = await prisma.user.findUnique({
             where: { id: teacherId },
             include: {
                 teacherProfile: true,
-                coursesTaught: true
+                coursesTaught: true,
             }
         })
 
         if (!teacher) return res.status(404).json({ message: 'Teacher not found' })
-
         res.json(teacher)
     } catch (err) {
         console.error(err)
@@ -329,11 +330,12 @@ export const updateTeacherProfile = async (req, res) => {
     try {
         const teacherId = req.user.id
         const { name, subject, experience, phone } = req.body
-        let imageUrl = undefined
-
-        // ถ้ามีรูปให้เก็บ path
-        if (req.file) {
-            imageUrl = `/uploads/courses/images/${req.file.filename}` // path ตาม Multer setup
+        const image = req.files?.image?.[0];
+        console.log(req.files)
+        // ถ้าอัปโหลดรูปใหม่
+        let imageUrl;
+        if (image) {
+            imageUrl = `/uploads/courses/images/${image.filename}`;
         }
 
         // update teacher user
@@ -341,12 +343,12 @@ export const updateTeacherProfile = async (req, res) => {
             where: { id: teacherId },
             data: {
                 name,
-                ...(imageUrl && { image: imageUrl }) // update image ถ้ามี
+                ...(imageUrl && { image: imageUrl }) // อัปเดตรูปเฉพาะถ้ามี
             }
         })
 
         // update หรือสร้าง teacherProfile
-        const profile = await prisma.teacherProfile.upsert({
+        await prisma.teacherProfile.upsert({
             where: { userId: teacherId },
             update: { subject, experience: Number(experience), phone },
             create: { userId: teacherId, subject, experience: Number(experience), phone }
@@ -364,7 +366,6 @@ export const updateTeacherProfile = async (req, res) => {
         res.status(500).json({ message: 'Server error' })
     }
 }
-
 export const removeCourse = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const course = await prisma.course.findUnique({
@@ -396,7 +397,6 @@ export const removeCourse = asyncHandler(async (req, res) => {
         course: deletedCourse
     });
 })
-
 //  Teacher Categories
 export const getCategories = asyncHandler(async (req, res) => {
     const categories = await prisma.category.findMany();
@@ -405,3 +405,36 @@ export const getCategories = asyncHandler(async (req, res) => {
         data: categories
     });
 });
+// Student Enrollment
+export const getStudents = asyncHandler(async (req, res) => {
+    const teacherId = req.user.id
+
+    if (!teacherId) throw new AppError("Teacher ID not Found!", 404)
+
+    const courses = await prisma.course.findMany({
+        where: { teacherId },
+        include: {
+            studentCourses: {
+                include: { student: true }
+            }
+        }
+    })
+    const studentsMap = new Map()
+    courses.forEach(course => {
+        course.studentCourses.forEach(sc => {
+            const student = sc.student
+            if (!studentsMap.has(student.id)) {
+                studentsMap.set(student.id, {
+                    id: student.id,
+                    name: student.name,
+                    email: student.email,
+                    courseName: course.title,
+                    progress: sc.progress,
+                    joinedDate: sc.joinedAt.toISOString().split('T')[0]
+                })
+            }
+        })
+    })
+    console.log(Array.from(studentsMap.values()))
+    res.json(Array.from(studentsMap.values()))
+})    

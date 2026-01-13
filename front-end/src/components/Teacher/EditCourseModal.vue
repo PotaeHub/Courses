@@ -15,9 +15,10 @@ const form = ref({
     description: props.course.description || '',
     price: props.course.price || 0,
     status: props.course.status || 'DRAFT',
-    categoryId: props.course.category?.id || null,
+    category: props.course.category || { id: null, name: '' },
     image: props.course.image || null
 })
+// console.log('Frontend Form :', form.value)
 
 // ------------------ FILES ------------------
 const getFileUrl = path =>
@@ -38,7 +39,6 @@ const lessons = ref(
         isDragging: false
     }))
 )
-
 
 // ------------------ HANDLERS ------------------
 const onImageChange = e => {
@@ -96,10 +96,10 @@ const submit = async () => {
         payload.append('description', form.value.description)
         payload.append('price', form.value.price)
         payload.append('status', form.value.status)
-        payload.append('categoryId', form.value.categoryId || '')
+        payload.append('categoryId', form.value.category?.id ?? '')
+
 
         if (imageFile.value) payload.append('image', imageFile.value)
-
         // map lessons
         const cleanLessons = lessons.value.map(l => ({
             id: l.id,
@@ -165,7 +165,9 @@ const submit = async () => {
                         <div class="mt-4">
                             <label
                                 class="text-xs font-black uppercase tracking-widest text-slate-400 ml-2">Category</label>
-                            <select v-model="form.categoryId" class="input-modern">
+                            <select :value="form.category.id"
+                                @change="e => { form.category.id = Number(e.target.value); form.category.name = props.categories.find(c => c.id === Number(e.target.value))?.name || '' }"
+                                class="input-modern">
                                 <option :value="null">-- Select Category --</option>
                                 <option v-for="cat in props.categories" :key="cat.id" :value="cat.id">{{ cat.name }}
                                 </option>

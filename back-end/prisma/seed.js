@@ -56,7 +56,7 @@ async function main() {
     })
 
     // ================= CATEGORIES =================
-    const categoryNames = ['English', 'Math', 'Science']
+    const categoryNames = ['English', 'Math', 'Science', 'History', 'Computer', 'Art']
     const categories = {}
 
     for (const name of categoryNames) {
@@ -67,98 +67,105 @@ async function main() {
         })
     }
 
-    // ================= COURSES =================
+    // ================= COURSES + LESSONS =================
+    const courseTitles = [
+        'Basic Mathematics',
+        'English Grammar',
+        'Science Experiments',
+        'World History',
+        'Computer Programming',
+        'Art & Design',
+        'Advanced Math',
+        'English Conversation',
+        'Physics Fundamentals',
+        'Creative Writing'
+    ]
 
-    // ----- Course 1 -----
-    const course1 = await prisma.course.findFirst({
-        where: { title: 'Basic Mathematics' }
-    })
+    for (const title of courseTitles) {
+        const existing = await prisma.course.findFirst({ where: { title } })
+        if (existing) continue
 
-    if (!course1) {
+        // เลือก category แบบ random
+        const categoryKeys = Object.keys(categories)
+        const randomCategory = categories[categoryKeys[Math.floor(Math.random() * categoryKeys.length)]]
+
+        // สร้างบทเรียน 5-8 บทต่อคอร์ส
+        const lessons = []
+        const lessonCount = 5 + Math.floor(Math.random() * 4) // 5-8 lessons
+        for (let i = 1; i <= lessonCount; i++) {
+            lessons.push({
+                title: `Lesson ${i} of ${title}`,
+                content: `เนื้อหาของบทเรียนที่ ${i} ในคอร์ส ${title}`,
+                sortOrder: i,
+                videos: {
+                    create: [
+                        { url: `/uploads/lessons/videos/sample-video-${i}.mp4` }
+                    ]
+                }
+            })
+        }
+
         await prisma.course.create({
             data: {
-                title: 'Basic Mathematics',
-                description: 'คณิตศาสตร์พื้นฐาน',
-                image: 'math.jpg',
-                price: 499,
+                title,
+                description: `คำอธิบายสำหรับคอร์ส ${title}`,
+                image: `/uploads/courses/images/${title.toLowerCase().replace(/\s+/g, '-')}.jpg`,
+                price: 500 + Math.floor(Math.random() * 1000),
                 type: 'GENERAL',
                 teacherId: teacher.id,
-                categoryId: categories.Math.id,
-                lessons: {
-                    create: [
-                        {
-                            title: 'Introduction to Math',
-                            content: 'พื้นฐานคณิตศาสตร์',
-                            sortOrder: 1
-                        },
-                        {
-                            title: 'Addition & Subtraction',
-                            content: 'การบวกและลบ',
-                            sortOrder: 2
-                        }
-                    ]
-                }
+                categoryId: randomCategory.id,
+                lessons: { create: lessons }
             }
         })
     }
 
-    // ----- Course 2 -----
-    const course2 = await prisma.course.findFirst({
-        where: { title: 'English Grammar' }
-    })
-
-    if (!course2) {
-        await prisma.course.create({
-            data: {
-                title: 'English Grammar',
-                description: 'ไวยากรณ์ภาษาอังกฤษ',
-                image: 'english.jpg',
-                price: 599,
-                type: 'POPULAR',
-                teacherId: teacher.id,
-                categoryId: categories.English.id,
-                lessons: {
-                    create: [
-                        {
-                            title: 'Tenses',
-                            content: 'โครงสร้าง Tense',
-                            sortOrder: 1
-                        },
-                        {
-                            title: 'Parts of Speech',
-                            content: 'ชนิดของคำ',
-                            sortOrder: 2
-                        }
-                    ]
-                }
-            }
-        })
-    }
+    // ================= PAYMENTS =================
     await prisma.payment.createMany({
         data: [
-            {
-                userId: 1,
-                courseId: 1,
-                amount: 1200,
-                status: 'COMPLETED',
-                paymentDate: new Date('2025-01-10')
-            },
-            {
-                userId: 1,
-                courseId: 2,
-                amount: 1800,
-                status: 'COMPLETED',
-                paymentDate: new Date('2025-02-15')
-            },
-            {
-                userId: 2,
-                courseId: 1,
-                amount: 1500,
-                status: 'COMPLETED',
-                paymentDate: new Date('2025-03-05')
-            }
+            { userId: student.id, courseId: 1, amount: 1200, status: 'COMPLETED', createdAt: new Date('2025-01-10') },
+            { userId: student.id, courseId: 2, amount: 1800, status: 'COMPLETED', createdAt: new Date('2025-02-15') },
         ]
     })
+
+    // ================= ENROLLMENTS + STUDENTCOURSE =================
+    const allStudents = await prisma.user.findMany({ where: { role: 'STUDENT' } })
+    const allCourses = await prisma.course.findMany()
+
+    for (const student of allStudents) {
+        for (const course of allCourses) {
+            let enrollment = await prisma.enrollment.findFirst({ where: { userId: student.id, courseId: course.id } })
+            if (!enrollment) {
+                enrollment = await prisma.enrollment.create({
+                    data: {
+                        userId: student.id,
+                        courseId: course.id,
+                        status: 'ENROLLED',
+                        enrolledAt: new Date(
+                            2025,
+                            Math.floor(Math.random() * 12),
+                            Math.floor(Math.random() * 28) + 1
+                        )
+                    }
+                })
+            }
+
+            const existsSC = await prisma.studentCourse.findFirst({
+                where: { studentId: student.id, courseId: course.id }
+            })
+
+            if (!existsSC) {
+                await prisma.studentCourse.create({
+                    data: {
+                        studentId: student.id,
+                        courseId: course.id,
+                        progress: Math.floor(Math.random() * 101),
+                        joinedAt: enrollment.enrolledAt,
+                        enrollmentId: enrollment.id
+                    }
+                })
+            }
+        }
+    }
 
     console.log('🌱 Seed completed successfully')
 }
