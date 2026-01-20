@@ -479,7 +479,6 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
         if (!category) throw new AppError("Category not found.", 400);
     }
 
-    // parse lessons
     let lessonArray = []
     try {
         lessonArray = lessons
@@ -629,7 +628,6 @@ export const RemoveCourses = asyncHandler(async (req, res) => {
         course: deletedCourse
     });
 });
-
 // Dashboard Stats (Optional)
 export const getDashboardStats = asyncHandler(async (req, res) => {
     const [
@@ -660,8 +658,6 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
         }
     });
 });
-
-// controllers/admin/dashboard.controller.js
 export const getRevenueChart = async (req, res) => {
     const payments = await prisma.payment.findMany({
         where: {
@@ -676,7 +672,7 @@ export const getRevenueChart = async (req, res) => {
     const monthly = {}
 
     payments.forEach(p => {
-        const month = p.paymentDate.toISOString().slice(0, 7) // YYYY-MM
+        const month = p.createdAt.toISOString().slice(0, 7) // YYYY-MM
         monthly[month] = (monthly[month] || 0) + p.amount
     })
 
@@ -692,7 +688,19 @@ export const getRevenueChart = async (req, res) => {
         data
     })
 }
+// Payment
+export const getAllPayments = async (req, res) => {
+    const payments = await prisma.payment.findMany({
+        orderBy: { createdAt: "desc" },
+        include: {
+            user: { select: { name: true } },
+            course: { select: { title: true } },
+            order: true
+        }
+    })
 
+    res.json(payments)
+}
 
 
 

@@ -55,7 +55,6 @@ export const register = asyncHandler(async (req, res) => {
         image,
 
         // student
-        gradeLevel,
         classroom,
         phone,
 
@@ -99,7 +98,6 @@ export const register = asyncHandler(async (req, res) => {
             await tx.studentProfile.create({
                 data: {
                     userId: newUser.id,
-                    gradeLevel,
                     classroom,
                     phone
                 },

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { auth } from "../middlewares/auth.js"
 import { Roles } from "../middlewares/checkRole.js"
-import { courseLessons, createReview, getCategories, getCourseDetail, getCourses, myCourses, paymentHistory, studentDashboard, updateProgress } from '../controllers/Student.controller.js'
+import { courseLessons, createReview,  getCategories, getCourseDetail, myCourses, paymentHistory, studentDashboard, updateProgress } from '../controllers/Student.controller.js'
 
 const router = Router()
 

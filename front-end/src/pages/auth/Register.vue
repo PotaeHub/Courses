@@ -4,14 +4,13 @@ import api from '../../service/api.js'
 
 const form = reactive({
     email: '', password: '', confirmPassword: '', name: '',
-    role: 'STUDENT', gradeLevel: '', classroom: '',
+    role: 'STUDENT',
     subject: '', experience: null, phone: ''
 })
 
 const isPasswordMatch = computed(() => form.confirmPassword !== '' && form.password === form.confirmPassword)
 const isFormValid = computed(() => {
     const common = form.email && form.password && form.name && isPasswordMatch.value;
-    if (form.role === 'STUDENT') return common && form.gradeLevel && form.classroom;
     if (form.role === 'TEACHER') return common && form.subject && form.experience !== null;
     return common;
 })
@@ -73,14 +72,6 @@ const handleRegister = async () => {
 
             <input v-model="form.phone" type="text" placeholder="เบอร์โทรศัพท์"
                 class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none transition" />
-
-            <div v-if="form.role === 'STUDENT'" class="space-y-4 border-t pt-4 animate-fade-in">
-                <p class="text-sm font-bold text-blue-500 uppercase tracking-wider">ข้อมูลการศึกษา</p>
-                <input v-model="form.gradeLevel" type="text" placeholder="ระดับชั้น (เช่น ม.6)"
-                    class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" required />
-                <input v-model="form.classroom" type="text" placeholder="ห้องเรียน"
-                    class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
-            </div>
 
             <div v-if="form.role === 'TEACHER'" class="space-y-4 border-t pt-4 animate-fade-in">
                 <p class="text-sm font-bold text-green-500 uppercase tracking-wider">ข้อมูลอาจารย์</p>

@@ -10,6 +10,9 @@ const storage = multer.diskStorage({
             dir = 'uploads/courses/images'
         }
 
+        if (file.fieldname === 'slip') {
+            dir = 'uploads/payments/slips' 
+        }
         if (file.fieldname.startsWith('video_lesson_')) {
             dir = 'uploads/lessons/videos'
         }

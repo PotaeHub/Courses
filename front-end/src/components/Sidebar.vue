@@ -34,6 +34,11 @@ const menuItems = [
         name: 'Category',
         path: '/admin/category',
         icon: Layers
+    },
+    {
+        name: 'Payments',
+        path: '/admin/payments',
+        icon: Layers
     }
 ]
 

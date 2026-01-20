@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createUser, editUser, getAllCategories, getAllUsers, getIDCategories, getIDUser, removeUser, createCategories, EditCategories, RemoveCategories, getAllCourses, getIDCourses, RemoveCourses, createCourseWithLessons, updateCourseWithLessons, getRevenueChart, getDashboardStats } from "../controllers/Admin.controller.js";
+import { createUser, editUser, getAllCategories, getAllUsers, getIDCategories, getIDUser, removeUser, createCategories, EditCategories, RemoveCategories, getAllCourses, getIDCourses, RemoveCourses, createCourseWithLessons, updateCourseWithLessons, getRevenueChart, getDashboardStats, getAllPayments } from "../controllers/Admin.controller.js";
 import { Roles } from "../middlewares/checkRole.js";
 import { auth } from "../middlewares/auth.js";
 import { upload } from "../middlewares/upload.js";
@@ -32,4 +32,12 @@ router.delete("/admin/courses/:id", auth, Roles("ADMIN"), RemoveCourses);
 // Dashboard 
 router.get("/admin/revenue-chart", auth, Roles("ADMIN"), getRevenueChart);
 router.get("/admin/dashboard", auth, Roles("ADMIN"), getDashboardStats);
+// payment 
+router.get(
+    "/admin/payments",
+    auth,
+    Roles(["ADMIN"]),
+    getAllPayments
+)
+
 export default router;

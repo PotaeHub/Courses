@@ -16,6 +16,9 @@ import StudentDashboard from '../pages/Student/Dashboard.vue';
 import MainLayout from '../layouts/MainLayout.vue';
 import StudentLayout from '../layouts/StudentLayout.vue';
 import CourseDetail from '../pages/Student/CourseDetail.vue';
+import { useAuthStore } from '../../Store/auth';
+import Payment from '../pages/Payment.vue';
+import Adminpayments from '../pages/admin/Adminpayments.vue';
 
 const routes = [
     {
@@ -39,6 +42,7 @@ const routes = [
             { path: 'courses', component: Courses },
             { path: 'users', component: Users },
             { path: 'category', component: Category },
+            { path: 'payments', component: Adminpayments }
         ]
     },
     {
@@ -61,13 +65,12 @@ const routes = [
                 path: 'course/:id',
                 name: 'student-course-detail',
                 component: CourseDetail
+            },
+            {
+                path: "payment/:id",
+                name: "student-payment",
+                component: Payment
             }
-            // { path: 'courses', component: () => import('../pages/Student/MyCourses.vue') },
-            // { path: 'courses/:courseId', component: () => import('../pages/Student/CourseLearning.vue') },
-            // { path: 'courses/:courseId/lessons/:lessonId', component: () => import('../pages/Student/LessonView.vue') },
-            // { path: 'payments', component: () => import('../pages/Student/Payments.vue') },
-            // { path: 'profile', component: () => import('../pages/Student/Profile.vue') },
-            // { path: 'reviews', component: () => import('../pages/Student/Reviews.vue') },
         ]
     }
 ];
@@ -76,5 +79,16 @@ const router = createRouter({
     history: createWebHistory(),
     routes,
 });
-
+router.beforeEach((to, from, next) => {
+    const auth = useAuthStore()
+    if (to.meta.requiresAuth && !auth.isLogin) {
+        next({
+            path: "/login",
+            query: { redirect: to.fullPath }
+        }
+        )
+    } else {
+        next()
+    }
+})
 export default router;

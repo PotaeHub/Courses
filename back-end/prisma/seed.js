@@ -46,11 +46,7 @@ async function main() {
             role: 'STUDENT',
             name: 'Student One',
             studentProfile: {
-                create: {
-                    gradeLevel: 'ม.6',
-                    classroom: '6/1',
-                    phone: '0777777777'
-                }
+                create: { phone: '0777777777' }
             }
         }
     })
@@ -73,34 +69,25 @@ async function main() {
         'English Grammar',
         'Science Experiments',
         'World History',
-        'Computer Programming',
-        'Art & Design',
-        'Advanced Math',
-        'English Conversation',
-        'Physics Fundamentals',
-        'Creative Writing'
+        'Computer Programming'
     ]
 
     for (const title of courseTitles) {
-        const existing = await prisma.course.findFirst({ where: { title } })
-        if (existing) continue
+        const exists = await prisma.course.findFirst({ where: { title } })
+        if (exists) continue
 
-        // เลือก category แบบ random
         const categoryKeys = Object.keys(categories)
-        const randomCategory = categories[categoryKeys[Math.floor(Math.random() * categoryKeys.length)]]
+        const randomCategory =
+            categories[categoryKeys[Math.floor(Math.random() * categoryKeys.length)]]
 
-        // สร้างบทเรียน 5-8 บทต่อคอร์ส
         const lessons = []
-        const lessonCount = 5 + Math.floor(Math.random() * 4) // 5-8 lessons
-        for (let i = 1; i <= lessonCount; i++) {
+        for (let i = 1; i <= 5; i++) {
             lessons.push({
-                title: `Lesson ${i} of ${title}`,
-                content: `เนื้อหาของบทเรียนที่ ${i} ในคอร์ส ${title}`,
+                title: `Lesson ${i}`,
+                content: `Content of lesson ${i}`,
                 sortOrder: i,
                 videos: {
-                    create: [
-                        { url: `/uploads/lessons/videos/sample-video-${i}.mp4` }
-                    ]
+                    create: [{ url: `/uploads/lessons/videos/sample-${i}.mp4` }]
                 }
             })
         }
@@ -108,10 +95,11 @@ async function main() {
         await prisma.course.create({
             data: {
                 title,
-                description: `คำอธิบายสำหรับคอร์ส ${title}`,
+                description: `Description for ${title}`,
                 image: `/uploads/courses/images/${title.toLowerCase().replace(/\s+/g, '-')}.jpg`,
                 price: 500 + Math.floor(Math.random() * 1000),
                 type: 'GENERAL',
+                status: 'PUBLISHED',
                 teacherId: teacher.id,
                 categoryId: randomCategory.id,
                 lessons: { create: lessons }
@@ -119,52 +107,51 @@ async function main() {
         })
     }
 
-    // ================= PAYMENTS =================
-    await prisma.payment.createMany({
-        data: [
-            { userId: student.id, courseId: 1, amount: 1200, status: 'COMPLETED', createdAt: new Date('2025-01-10') },
-            { userId: student.id, courseId: 2, amount: 1800, status: 'COMPLETED', createdAt: new Date('2025-02-15') },
-        ]
-    })
+    // ================= ORDERS + PAYMENTS =================
+    const courses = await prisma.course.findMany({ take: 2 })
 
-    // ================= ENROLLMENTS + STUDENTCOURSE =================
-    const allStudents = await prisma.user.findMany({ where: { role: 'STUDENT' } })
-    const allCourses = await prisma.course.findMany()
-
-    for (const student of allStudents) {
-        for (const course of allCourses) {
-            let enrollment = await prisma.enrollment.findFirst({ where: { userId: student.id, courseId: course.id } })
-            if (!enrollment) {
-                enrollment = await prisma.enrollment.create({
-                    data: {
-                        userId: student.id,
-                        courseId: course.id,
-                        status: 'ENROLLED',
-                        enrolledAt: new Date(
-                            2025,
-                            Math.floor(Math.random() * 12),
-                            Math.floor(Math.random() * 28) + 1
-                        )
-                    }
-                })
+    for (const course of courses) {
+        // 1️⃣ Order
+        const order = await prisma.order.create({
+            data: {
+                userId: student.id,
+                courseId: course.id,
+                amount: Math.floor(course.price),
+                status: 'PAID'
             }
+        })
 
-            const existsSC = await prisma.studentCourse.findFirst({
-                where: { studentId: student.id, courseId: course.id }
-            })
-
-            if (!existsSC) {
-                await prisma.studentCourse.create({
-                    data: {
-                        studentId: student.id,
-                        courseId: course.id,
-                        progress: Math.floor(Math.random() * 101),
-                        joinedAt: enrollment.enrolledAt,
-                        enrollmentId: enrollment.id
-                    }
-                })
+        // 2️⃣ Payment (ผูกกับ Order)
+        await prisma.payment.create({
+            data: {
+                userId: student.id,
+                courseId: course.id,
+                orderId: order.id,
+                method: "PROMPTPAY",
+                amount: course.price,
+                status: 'COMPLETED',
+                slip: '/uploads/payments/sample-slip.jpg'
             }
-        }
+        })
+
+        // 3️⃣ Enrollment
+        const enrollment = await prisma.enrollment.create({
+            data: {
+                userId: student.id,
+                courseId: course.id,
+                status: 'ENROLLED'
+            }
+        })
+
+        // 4️⃣ StudentCourse
+        await prisma.studentCourse.create({
+            data: {
+                studentId: student.id,
+                courseId: course.id,
+                progress: Math.floor(Math.random() * 100),
+                enrollmentId: enrollment.id
+            }
+        })
     }
 
     console.log('🌱 Seed completed successfully')

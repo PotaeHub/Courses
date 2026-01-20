@@ -1,6 +1,6 @@
 import { asyncHandler } from "../middlewares/asyncHandler.js";
 import AppError from '../utils/AppError.js';
-import prisma, { PaymentStatus } from '../config/db.js';
+import prisma from '../config/db.js';
 
 
 // =================== Categories ===================
@@ -183,7 +183,6 @@ export const courseLessons = async (req, res) => {
         const userId = req.user.id
         const courseId = Number(req.params.courseId)
 
-        // เช็กว่าสมัครเรียนไหม
         const enrolled = await prisma.enrollment.findUnique({
             where: {
                 userId_courseId: {
@@ -264,19 +263,31 @@ export const paymentHistory = async (req, res) => {
 }
 export const createReview = async (req, res) => {
     const userId = req.user.id
-    const { courseId, rating, comment } = req.body
+    const courseId = Number(req.params.id)
+    const { rating, comment } = req.body
 
-    // ต้องเรียนจบก่อน
-    const completed = await prisma.enrollment.findFirst({
+    const enrolled = await prisma.enrollment.findFirst({
         where: {
             userId,
             courseId,
-            status: 'COMPLETED'
+            status: { in: ['ENROLLED', 'COMPLETED'] }
         }
     })
 
-    if (!completed) {
-        return res.status(400).json({ message: 'Course not completed' })
+    if (!enrolled) {
+        return res.status(403).json({
+            message: 'ต้องจองคอร์สก่อนจึงจะรีวิวได้'
+        })
+    }
+
+    const alreadyReviewed = await prisma.review.findFirst({
+        where: { userId, courseId }
+    })
+
+    if (alreadyReviewed) {
+        return res.status(400).json({
+            message: 'คุณได้รีวิวคอร์สนี้ไปแล้ว'
+        })
     }
 
     await prisma.review.create({
@@ -290,6 +301,10 @@ export const createReview = async (req, res) => {
 
     res.json({ message: 'Review submitted' })
 }
+
+
+
+
 
 
 
