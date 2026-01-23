@@ -154,7 +154,8 @@ model Lesson {
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId Int
 
-  videos LessonVideo[]
+  videos     LessonVideo[]
+  progresses LessonProgress[]
 }
 
 model LessonVideo {
@@ -174,8 +175,9 @@ model Enrollment {
   status     EnrollmentStatus @default(ENROLLED)
   enrolledAt DateTime         @default(now())
 
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+  course     Course           @relation(fields: [courseId], references: [id])
+  progresses LessonProgress[]
 
   @@unique([userId, courseId])
 }
@@ -228,9 +230,24 @@ model Review {
   courseId Int
   rating   Int
   comment  String?
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
+  avatar   String?
+  user     User    @relation(fields: [userId], references: [id])
+  course   Course  @relation(fields: [courseId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+model LessonProgress {
+  id           Int @id @default(autoincrement())
+  enrollmentId Int
+  lessonId     Int
+
+  isCompleted Boolean   @default(false)
+  watchedAt   DateTime?
+  completedAt DateTime?
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
 }

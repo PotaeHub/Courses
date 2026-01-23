@@ -16,5 +16,6 @@ defineProps({
         <div class="grid md:grid-cols-4 gap-6">
             <CourseCard v-for="c in courses" :key="c.id" :course="c" />
         </div>
+        
     </section>
 </template>

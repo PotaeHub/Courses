@@ -301,6 +301,142 @@ export const createReview = async (req, res) => {
 
     res.json({ message: 'Review submitted' })
 }
+export const studentGetCourse = async (req, res) => {
+    try {
+        const studentId = req.user.id
+        if (!studentId) return res.status(402).json({ message: "Student Not Found!" })
+        const page = Number(req.query.page) || 1
+        const limit = 6
+        const skip = (page - 1) * limit
+        const [orders, total] = await Promise.all([
+            prisma.order.findMany({
+                where: { userId: studentId },
+                include: { course: true },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.order.count({
+                where: { userId: studentId }
+            })
+        ])
+
+        res.json({
+            orders,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error studentGetCourse"
+        })
+    }
+}
+export const getPublishedTeacherCourses = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            keyword = '',
+            categoryId = '',
+            type = '',
+            minPrice = '',
+            maxPrice = '',
+            sortPrice = ''
+        } = req.query
+
+        const PAGE_SIZE = 9
+        const skip = (Number(page) - 1) * PAGE_SIZE
+
+        /* ---------------- WHERE ---------------- */
+        const where = {
+            status: "PUBLISHED"
+        }
+
+
+        if (keyword) {
+            where.title = {
+                contains: keyword,
+            }
+        }
+
+
+        if (categoryId) {
+            where.categoryId = Number(categoryId)
+        }
+
+        if (type) {
+            where.type = type
+        }
+
+        // 💰 price range
+        if (minPrice || maxPrice) {
+            where.price = {}
+            if (minPrice) where.price.gte = Number(minPrice)
+            if (maxPrice) where.price.lte = Number(maxPrice)
+        }
+
+        /* ---------------- ORDER BY ---------------- */
+        let orderBy = { createdAt: 'desc' }
+
+        if (sortPrice === 'asc') {
+            orderBy = { price: 'asc' }
+        }
+
+        if (sortPrice === 'desc') {
+            orderBy = { price: 'desc' }
+        }
+
+        /* ---------------- QUERY ---------------- */
+        const [courses, total] = await Promise.all([
+            prisma.course.findMany({
+                where,
+                orderBy,
+                skip,
+                take: PAGE_SIZE,
+                include: {
+                    teacher: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    },
+                    category: true
+                }
+            }),
+            prisma.course.count({ where })
+        ])
+
+        res.json({
+            courses,
+            totalPages: Math.ceil(total / PAGE_SIZE)
+        })
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Fetch courses failed' })
+    }
+}
+export const studentGetCategories = async (req, res) => {
+    try {
+        const categories = await prisma.category.findMany({
+            include: {
+                courses: true
+            },
+            orderBy: {
+                courses: {
+                    _count: 'desc'
+                }
+            }
+        })
+
+        res.json(categories)
+    } catch (err) {
+        res.status(500).json({ message: 'Fetch categories failed' })
+    }
+}
+
 
 
 

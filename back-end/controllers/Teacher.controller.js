@@ -409,32 +409,55 @@ export const getCategories = asyncHandler(async (req, res) => {
 export const getStudents = asyncHandler(async (req, res) => {
     const teacherId = req.user.id
 
-    if (!teacherId) throw new AppError("Teacher ID not Found!", 404)
-
     const courses = await prisma.course.findMany({
         where: { teacherId },
         include: {
-            studentCourses: {
-                include: { student: true }
+            lessons: { select: { id: true, title: true } },
+            enrollments: {
+                include: { user: true }
             }
         }
     })
-    const studentsMap = new Map()
-    courses.forEach(course => {
-        course.studentCourses.forEach(sc => {
-            const student = sc.student
-            if (!studentsMap.has(student.id)) {
-                studentsMap.set(student.id, {
-                    id: student.id,
-                    name: student.name,
-                    email: student.email,
-                    courseName: course.title,
-                    progress: sc.progress,
-                    joinedDate: sc.joinedAt.toISOString().split('T')[0]
-                })
-            }
-        })
-    })
-    console.log(Array.from(studentsMap.values()))
-    res.json(Array.from(studentsMap.values()))
-})    
+
+    const students = []
+
+    for (const course of courses) {
+        const totalLessons = course.lessons.length
+        const lessonIds = course.lessons.map(l => l.id)
+
+        for (const enroll of course.enrollments) {
+            const progresses = await prisma.lessonProgress.findMany({
+                where: {
+                    enrollmentId: enroll.id,
+                    lessonId: { in: lessonIds },
+                    watchedAt: { not: null }
+                },
+                include: {
+                    lesson: { select: { title: true } }
+                },
+                orderBy: { watchedAt: 'desc' }
+            })
+
+            students.push({
+                id: enroll.user.id,
+                name: enroll.user.name,
+                email: enroll.user.email,
+                courseName: course.title,
+                joinedDate: enroll.enrolledAt.toISOString().split('T')[0],
+
+                watchedLessons: progresses.length,
+                totalLessons,
+                progressPercent:
+                    totalLessons === 0
+                        ? 0
+                        : Math.round((progresses.length / totalLessons) * 100),
+
+                lastLessonTitle: progresses[0]?.lesson?.title || null
+            })
+        }
+    }
+
+    res.json({ success: true, students })
+})
+
+

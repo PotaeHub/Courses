@@ -81,45 +81,81 @@ export const getPublicCourseDetail = async (req, res) => {
 export const getPopularCourses = async (req, res) => {
     try {
         const courses = await prisma.course.findMany({
-            where: {
-                status: "PUBLISHED"
-            },
+            where: { status: "PUBLISHED" },
             take: 8,
             orderBy: {
-                enrollments: {
-                    _count: "desc"
-                }
+                enrollments: { _count: "desc" }
             },
             include: {
                 category: true,
-                teacher: {
-                    select: {
-                        name: true
-                    }
-                },
+                teacher: { select: { name: true, image: true } },
+                reviews: { select: { rating: true } },
                 _count: {
-                    select: {
-                        enrollments: true
-                    }
+                    select: { enrollments: true }
                 }
             }
-        });
+        })
 
-        res.json(courses);
+        const result = courses.map(c => {
+            const avg =
+                c.reviews.length
+                    ? c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length
+                    : 0
+
+            return {
+                id: c.id,
+                title: c.title,
+                image: c.image,
+                price: c.price,
+                category: c.category,
+                teacher: c.teacher,
+                enrollCount: c._count.enrollments,
+                rating: Number(avg.toFixed(1)),
+                reviewCount: c.reviews.length
+            }
+        })
+
+        res.json(result)
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+        console.error(err)
+        res.status(500).json({ message: "Server error" })
     }
-};
+}
+
 
 export const getLatestCourses = async (req, res) => {
     const courses = await prisma.course.findMany({
+        where: { status: 'PUBLISHED' },
         take: 8,
         orderBy: { createdAt: 'desc' },
-        include: { category: true }
+        include: {
+            teacher: true,
+            category: true,
+            reviews: { select: { rating: true } }
+        }
     })
-    res.json(courses)
+
+    const result = courses.map(c => {
+        const avg =
+            c.reviews.length
+                ? c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length
+                : 0
+
+        return {
+            id: c.id,
+            title: c.title,
+            image: c.image,
+            price: c.price,
+            teacher: c.teacher,
+            category: c.category,
+            rating: Number(avg.toFixed(1)),
+            reviewCount: c.reviews.length
+        }
+    })
+
+    res.json(result)
 }
+
 export const getCategories = async (req, res) => {
     const categories = await prisma.category.findMany({
         orderBy: { name: 'asc' }

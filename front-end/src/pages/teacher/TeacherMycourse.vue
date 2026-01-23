@@ -17,7 +17,8 @@ const selectedCourse = ref(null)
 const showEdit = ref(false)
 const showDeleteModal = ref(false)
 const courseToDelete = ref(null)
-
+const BACKEND = import.meta.env.VITE_BACKEND_URL
+console.log(BACKEND)
 const openDeleteModal = (course) => {
     courseToDelete.value = course
     showDeleteModal.value = true
@@ -46,10 +47,20 @@ const fetchCategories = async () => {
         console.error(err)
     }
 }
+
 const fetchCourses = async () => {
     try {
         const res = await api.get('/teacher/courses')
-        courses.value = res.data.data
+
+        courses.value = res.data.data.map(course => ({
+            ...course,
+            lessons: course.lessons?.map(l => ({
+                ...l,
+                videoUrl: l.videos?.length
+                    ? BACKEND + l.videos[0].url
+                    : null
+            })) || []
+        }))
     } catch (err) {
         console.error(err)
     } finally {
@@ -62,12 +73,10 @@ onMounted(() => {
 })
 const filteredCourses = computed(() => {
     return courses.value.filter(c => {
-        // 1. ตรวจสอบการค้นหา (ตรวจสอบทั้งชื่อคอร์ส และ เผื่อกรณี API ส่งมาเป็น c.title)
         const name = c.name || c.title || '';
         const matchSearch = name.toLowerCase().includes(searchQuery.value.toLowerCase());
 
-        // 2. ตรวจสอบ Category 
-        // ต้องเช็คว่า c.category เป็น String หรือเป็น Object ที่มี name อยู่ข้างใน
+
         const courseCategoryName = typeof c.category === 'object' ? c.category?.name : c.category;
 
         const matchCategory =

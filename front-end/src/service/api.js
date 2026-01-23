@@ -1,49 +1,31 @@
-import axios from "axios";
+import axios from "axios"
+import { useAuthStore } from "../../Store/auth"
+import router from "../routers/index"
 
 const api = axios.create({
     baseURL: "http://localhost:5000/api",
     withCredentials: true,
-});
+})
+
 api.interceptors.request.use(config => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("accessToken")
     if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`
     }
-    return config;
-});
+    return config
+})
+
+
 api.interceptors.response.use(
     res => res,
-    async err => {
-        const originalRequest = err.config;
+    error => {
+        if (error.response?.status === 401) {
+            const auth = useAuthStore()
+            auth.logout()
 
-        if (
-            err.response &&
-            err.response.status === 401 &&
-            !originalRequest._retry
-        ) {
-            originalRequest._retry = true;
-
-            try {
-                const { data } = await api.get("/refresh");
-                const accessToken = data.accessToken;
-
-                localStorage.setItem("accessToken", accessToken);
-                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-                return api(originalRequest);
-            } catch (refreshError) {
-                console.error("Refresh token failed", refreshError);
-
-                // clear token + redirect
-                localStorage.removeItem("accessToken");
-                window.location.href = "/login";
-
-                return Promise.reject(refreshError);
-            }
         }
-
-        return Promise.reject(err);
+        return Promise.reject(error)
     }
-);
+)
 
-export default api;
+export default api

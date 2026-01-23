@@ -7,27 +7,29 @@ import api from '../../service/api'
 const user = ref({ name: '', image: null })
 const showProfileModal = ref(false)
 
-const openProfile = () => showProfileModal.value = true
-const closeProfile = () => showProfileModal.value = false
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+
+const openProfile = () => (showProfileModal.value = true)
+const closeProfile = () => (showProfileModal.value = false)
 
 const fetchUser = async () => {
     try {
         const res = await api.get('/teacher/profile')
-        // console.log(res.data.name)
         const teacher = res.data
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
 
         user.value.name = teacher.name
-        user.value.image = teacher.image ? `${BACKEND_URL}${teacher.image}` : null
-        await refreshProfile()
+        user.value.image = teacher.image
+            ? `${BACKEND_URL}${teacher.image}`
+            : null
     } catch (err) {
-        console.error(err)
+        console.error('Fetch profile error:', err)
     }
 }
 
-
-
-const refreshProfile = () => fetchUser()
+// เรียกเฉพาะตอน modal update เสร็จ
+const refreshProfile = async () => {
+    await fetchUser()
+}
 
 onMounted(fetchUser)
 </script>

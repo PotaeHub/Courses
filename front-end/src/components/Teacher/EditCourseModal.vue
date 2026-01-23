@@ -3,12 +3,41 @@ import { ref } from 'vue'
 import api from '../../service/api'
 import { X, Upload, Plus, Trash2, PlayCircle } from 'lucide-vue-next'
 
-const props = defineProps({ course: Object, categories: Array })
-const emit = defineEmits(['close', 'updated'])
+/* ================= PROPS ================= */
+const props = defineProps({
+    course: Object,
+    categories: Array
+})
 
+const emit = defineEmits(['close', 'updated'])
 const loading = ref(false)
 
-// ------------------ FORM ------------------
+/* ================= BACKEND ================= */
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+
+const getFileUrl = (path) => {
+    if (!path) return null
+    if (path.startsWith('http') || path.startsWith('blob:')) return path
+    return `${BACKEND}${path}`
+}
+const onImageChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    imageFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+}
+
+const onImageDrop = (e) => {
+    isDraggingImage.value = false
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+
+    imageFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+}
+
+/* ================= FORM ================= */
 const form = ref({
     id: props.course.id,
     title: props.course.name || '',
@@ -18,103 +47,93 @@ const form = ref({
     category: props.course.category || { id: null, name: '' },
     image: props.course.image || null
 })
-// console.log('Frontend Form :', form.value)
 
-// ------------------ FILES ------------------
-const getFileUrl = path =>
-    path ? (path.startsWith('http') ? path : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${path}`) : null
-
+/* ================= IMAGE ================= */
 const imagePreview = ref(form.value.image ? getFileUrl(form.value.image) : null)
 const imageFile = ref(null)
 const isDraggingImage = ref(false)
+
+/* ================= LESSONS ================= */
 const deletedLessons = ref([])
-// ------------------ LESSONS ------------------
+
 const lessons = ref(
     props.course.lessons.map(l => ({
         id: l.id,
         title: l.title,
         content: l.content,
+        videoPath: l.videos?.[0]?.url ?? null,
+        videoPreview: l.videos?.[0]?.url
+            ? getFileUrl(l.videos[0].url)
+            : null,
+
         videoFile: null,
-        videoUrl: l.videos[0] ? getFileUrl(l.videos[0].url) : null,
+        replaceVideo: false,
         isDragging: false
     }))
 )
 
-// ------------------ HANDLERS ------------------
-const onImageChange = e => {
-    const f = e.target.files[0]
-    if (f) {
-        imageFile.value = f
-        imagePreview.value = URL.createObjectURL(f)
-    }
-}
-
-const onImageDrop = e => {
-    const f = e.dataTransfer.files[0]
-    if (f) {
-        imageFile.value = f
-        imagePreview.value = URL.createObjectURL(f)
-    }
-}
-
+/* ================= VIDEO HANDLER ================= */
 const handleVideoFile = (index, files) => {
     const file = files[0]
     if (!file) return
 
-    // ถ้า lesson มี videoUrl เดิม ให้ mark เป็น videoReplace
-    if (lessons.value[index].videoUrl && lessons.value[index].videoUrl.startsWith('http')) {
-        lessons.value[index].replaceVideo = true
-    }
-
     lessons.value[index].videoFile = file
-    lessons.value[index].videoUrl = URL.createObjectURL(file)
+    lessons.value[index].videoPreview = URL.createObjectURL(file)
+    lessons.value[index].replaceVideo = true
 }
 
-
-const addLesson = () =>
+/* ================= LESSON ACTIONS ================= */
+const addLesson = () => {
     lessons.value.push({
         id: null,
         title: '',
         content: '',
+        videoPath: null,
+        videoPreview: null,
         videoFile: null,
-        videoUrl: null,
+        replaceVideo: false,
         isDragging: false
     })
-
-const removeLesson = i => {
-    const lesson = lessons.value[i]
-    if (lesson.id) deletedLessons.value.push(lesson.id)
-    lessons.value.splice(i, 1)
 }
 
-// ------------------ SUBMIT ------------------
+const removeLesson = index => {
+    const lesson = lessons.value[index]
+    if (lesson.id) deletedLessons.value.push(lesson.id)
+    lessons.value.splice(index, 1)
+}
+
+/* ================= SUBMIT ================= */
 const submit = async () => {
     loading.value = true
     try {
         const payload = new FormData()
+
         payload.append('title', form.value.title)
         payload.append('description', form.value.description)
         payload.append('price', form.value.price)
         payload.append('status', form.value.status)
         payload.append('categoryId', form.value.category?.id ?? '')
 
+        if (imageFile.value) {
+            payload.append('image', imageFile.value)
+        }
 
-        if (imageFile.value) payload.append('image', imageFile.value)
-        // map lessons
-        const cleanLessons = lessons.value.map(l => ({
-            id: l.id,
-            title: l.title,
-            content: l.content
-        }))
-        payload.append('lessons', JSON.stringify(cleanLessons))
+        payload.append(
+            'lessons',
+            JSON.stringify(
+                lessons.value.map(l => ({
+                    id: l.id,
+                    title: l.title,
+                    content: l.content
+                }))
+            )
+        )
 
-        // append lesson videos
         lessons.value.forEach((l, i) => {
             if (l.videoFile) payload.append(`video_lesson_${i}`, l.videoFile)
-            if (l.replaceVideo) payload.append(`replace_video_lesson_${i}`, '1') // flag บอก backend ให้ลบ video เก่า
+            if (l.replaceVideo) payload.append(`replace_video_lesson_${i}`, '1')
         })
 
-        // append deleted lesson ids
         if (deletedLessons.value.length) {
             payload.append('deletedLessons', JSON.stringify(deletedLessons.value))
         }
@@ -129,8 +148,10 @@ const submit = async () => {
         loading.value = false
     }
 }
-
 </script>
+
+
+
 
 <template>
     <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -217,22 +238,26 @@ const submit = async () => {
                             <textarea v-model="lesson.content" class="input-sub h-20 resize-none"
                                 placeholder="Lesson content" />
 
-                            <!-- Video Upload -->
                             <div @dragover.prevent="lesson.isDragging = true"
                                 @dragleave.prevent="lesson.isDragging = false"
                                 @drop.prevent="e => { lesson.isDragging = false; handleVideoFile(index, e.dataTransfer.files) }"
                                 class="relative aspect-video border-2 border-dashed rounded-2xl flex flex-col items-center justify-center overflow-hidden transition-all"
                                 :class="lesson.isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-slate-50 hover:bg-slate-100/50'">
 
-                                <template v-if="lesson.videoUrl">
+                                <template v-if="lesson.videoPreview">
                                     <div class="relative aspect-video w-full h-full">
-                                        <video :src="lesson.videoUrl" controls class="w-full h-full object-cover" />
-                                        <button @click="() => { lesson.videoFile = null; lesson.videoUrl = null }"
-                                            class="absolute top-1 right-1 bg-white p-1 rounded-full">
+                                        <video :src="lesson.videoPreview" controls class="w-full h-full object-cover" />
+                                        <button @click="() => {
+                                            lesson.videoFile = null
+                                            lesson.videoPreview = null
+                                            lesson.videoPath = null
+                                            lesson.replaceVideo = true
+                                        }" class="absolute top-1 right-1 bg-white p-1 rounded-full">
                                             <X size="14" />
                                         </button>
                                     </div>
                                 </template>
+
 
                                 <div v-else
                                     class="flex flex-col items-center justify-center text-slate-400 pointer-events-none">

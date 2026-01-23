@@ -19,6 +19,8 @@ import CourseDetail from '../pages/Student/CourseDetail.vue';
 import { useAuthStore } from '../../Store/auth';
 import Payment from '../pages/Payment.vue';
 import Adminpayments from '../pages/admin/Adminpayments.vue';
+import MyCourses from '../pages/Student/MyCourses.vue';
+import StudentCourses from '../pages/Student/StudentCourses.vue';
 
 const routes = [
     {
@@ -48,17 +50,18 @@ const routes = [
     {
         path: '/teacher',
         component: TeacherLayout,
+        meta: { requiresAuth: true, role: 'TEACHER' },
         children: [
             { path: 'dashboard', component: TeacherDashboard },
             { path: 'courses', component: TeacherMycourse },
             { path: 'students', component: TeacherStudentsView },
-            // { path: 'earnings', component: TeacherEarnings },
             { path: 'profile', component: TeacherProfile },
         ]
     },
     {
         path: '/student',
         component: StudentLayout,
+        meta: { requiresAuth: true, role: 'STUDENT' },
         children: [
             { path: 'dashboard', component: StudentDashboard },
             {
@@ -70,6 +73,16 @@ const routes = [
                 path: "payment/:id",
                 name: "student-payment",
                 component: Payment
+            },
+            {
+                path: "mycourses",
+                name: "student-my-courses",
+                component: MyCourses
+            },
+            {
+                path: "courses",
+                name: "student-courses",
+                component: StudentCourses
             }
         ]
     }
@@ -81,14 +94,24 @@ const router = createRouter({
 });
 router.beforeEach((to, from, next) => {
     const auth = useAuthStore()
-    if (to.meta.requiresAuth && !auth.isLogin) {
-        next({
-            path: "/login",
-            query: { redirect: to.fullPath }
-        }
-        )
-    } else {
-        next()
+
+    const requiresAuth = to.matched.some(
+        record => record.meta.requiresAuth
+    )
+
+    const requiredRole = to.matched.find(
+        record => record.meta.role
+    )?.meta.role
+
+
+    if (requiredRole && auth.user?.role !== requiredRole) {
+        return next('/')
     }
+
+
+
+    next()
 })
+
+
 export default router;

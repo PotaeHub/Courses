@@ -50,7 +50,7 @@ onMounted(fetchUser)
             </router-link>
 
             <div class="hidden lg:flex items-center gap-1">
-                <router-link to="/courses"
+                <router-link to="/student/courses"
                     :class="[isActive('/courses') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-50']"
                     class="px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                     คอร์สทั้งหมด
@@ -62,8 +62,8 @@ onMounted(fetchUser)
                         class="px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                         Dashboard
                     </router-link>
-                    <router-link to="/student/courses"
-                        :class="[isActive('/student/courses') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-50']"
+                    <router-link to="/student/mycourses"
+                        :class="[isActive('/student/mycourses') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-50']"
                         class="px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                         คอร์สของฉัน
                     </router-link>
@@ -98,17 +98,18 @@ onMounted(fetchUser)
             <template v-else>
                 <div class="flex items-center gap-4 pl-4 border-l border-gray-100">
                     <div class="hidden sm:flex flex-col items-end text-xs text-right">
-                        <span class="font-bold text-gray-800">{{ auth.user.email.split('@')[0] }}</span>
+                        <span class="font-bold text-gray-800">
+                            {{ auth.user?.email?.split('@')[0] || '' }}
+                        </span>
                         <span class="text-gray-400 uppercase tracking-tighter font-medium">{{ auth.user.role }}</span>
                     </div>
-
                     <div
                         class="w-10 h-10 rounded-full overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
 
                         <img v-if="avatar" :src="avatar" class="w-full h-full object-cover" />
 
                         <span v-else class="font-bold text-gray-500">
-                            {{ auth.user.email[0].toUpperCase() }}
+                            {{ auth.user?.email?.[0]?.toUpperCase() || '' }}
                         </span>
                     </div>
 
