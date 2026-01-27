@@ -1,5 +1,7 @@
 <template>
-    <div v-if="order?.course" class="bg-white rounded-2xl shadow hover:shadow-lg transition p-5 flex gap-5">
+    <div v-if="order?.course"
+        class="bg-white rounded-2xl shadow hover:shadow-lg transition p-5 flex gap-5 cursor-pointer"
+        @click="goToCourse">
         <img :src="`${BASE_URL}${order.course.image}`" class="w-28 h-28 object-cover rounded-xl" />
 
         <div class="flex-1 space-y-2">
@@ -29,15 +31,28 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
 const BASE_URL =
     import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"
 
-defineProps({
+const props = defineProps({
     order: {
         type: Object,
         required: true
     }
 })
+
+const goToCourse = () => {
+    const courseId = props.order.course.id
+
+    router.push({
+        name: 'student-course-detail',
+        params: { id: courseId }
+    })
+}
 
 const formatDate = (date) =>
     new Date(date).toLocaleDateString("th-TH")

@@ -21,6 +21,7 @@ const fetchUser = async () => {
         user.value.image = teacher.image
             ? `${BACKEND_URL}${teacher.image}`
             : null
+            refreshProfile()
     } catch (err) {
         console.error('Fetch profile error:', err)
     }

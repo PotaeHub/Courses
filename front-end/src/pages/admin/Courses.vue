@@ -105,68 +105,71 @@ const stats = computed(() => [
 </script>
 
 <template>
-    <div class="p-8 max-w-7xl mx-auto space-y-8">
+    <div class="p-8 max-w-7xl mx-auto space-y-10 antialiased">
 
-        <!-- HEADER -->
-        <div class="flex justify-between items-end">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-                <h1 class="text-4xl font-black text-gray-900 tracking-tight">
+                <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">
                     Courses
                 </h1>
-                <p class="text-gray-500 mt-1 font-medium">
-                    จัดการเนื้อหา ราคา และสถานะการมองเห็นของบทเรียน
+                <p class="text-sm text-gray-500 mt-1">
+                    จัดการเนื้อหา ราคา และสถานะการมองเห็นของบทเรียนทั้งหมด
                 </p>
             </div>
 
-            <button @click="showCreate = true" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-2xl
-               font-bold shadow-lg shadow-blue-200 transition-all active:scale-95
-               flex items-center gap-2">
-                <span class="text-xl">+</span>
+            <button @click="showCreate = true" 
+                class="bg-gray-900 hover:bg-black text-white px-6 py-3 rounded-xl
+                       font-medium transition-all active:scale-95
+                       flex items-center gap-2 shadow-sm text-sm">
+                <span class="text-lg">+</span>
                 <span>สร้างคอร์สใหม่</span>
             </button>
         </div>
 
-        <!-- STATS -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div v-for="stat in stats" :key="stat.label" :class="stat.bg"
-                class="p-5 rounded-[24px] border border-white shadow-sm">
-                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div v-for="stat in stats" :key="stat.label"
+                class="p-6 rounded-2xl bg-white border border-gray-100 transition-hover hover:border-blue-100">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
                     {{ stat.label }}
                 </p>
-                <p class="text-2xl font-black" :class="stat.color">
+                <p class="text-2xl font-bold" :class="stat.color">
                     {{ stat.value }}
                 </p>
             </div>
         </div>
 
-        <!-- FILTER BAR -->
-        <div class="flex flex-col md:flex-row gap-4 bg-white p-3 rounded-2xl
-             shadow-sm border border-gray-100">
+        <div class="flex flex-col md:flex-row gap-3 bg-gray-50/50 p-2 rounded-2xl border border-gray-100">
+            <div class="relative flex-1">
+                <input v-model="search" type="text" placeholder="ค้นหาชื่อคอร์ส หรือชื่อผู้สอน..." 
+                    class="w-full px-5 py-3 bg-white border border-transparent focus:border-gray-200 rounded-xl
+                           outline-none text-sm transition-all placeholder:text-gray-400 shadow-sm" />
+            </div>
 
-            <input v-model="search" type="text" placeholder="ค้นหาชื่อคอร์ส หรือชื่อผู้สอน..." class="flex-1 px-4 py-3 bg-gray-50 rounded-xl
-               outline-none text-sm font-medium focus:ring-2 focus:ring-blue-500" />
+            <div class="flex gap-2">
+                <select v-model="selectedCategory" 
+                    class="px-4 py-3 bg-white border border-transparent focus:border-gray-200 rounded-xl
+                           text-sm font-medium text-gray-600 outline-none shadow-sm cursor-pointer">
+                    <option value="">ทุกหมวดหมู่</option>
+                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                        {{ cat.icon }} {{ cat.name }}
+                    </option>
+                </select>
 
-            <!-- CATEGORY -->
-            <select v-model="selectedCategory" class="px-4 py-3 bg-gray-50 rounded-xl
-               text-sm font-bold text-gray-600 outline-none">
-                <option value="">ทุกหมวดหมู่</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                    {{ cat.icon }} {{ cat.name }}
-                </option>
-            </select>
-
-            <!-- STATUS -->
-            <select v-model="selectedStatus" class="px-4 py-3 bg-gray-50 rounded-xl
-               text-sm font-bold text-gray-600 outline-none">
-                <option value="">ทุกสถานะ</option>
-                <option value="GENERAL">General</option>
-                <option value="POPULAR">Popular</option>
-                <option value="PACKAGE">Package</option>
-            </select>
+                <select v-model="selectedStatus" 
+                    class="px-4 py-3 bg-white border border-transparent focus:border-gray-200 rounded-xl
+                           text-sm font-medium text-gray-600 outline-none shadow-sm cursor-pointer">
+                    <option value="">ทุกสถานะ</option>
+                    <option value="GENERAL">General</option>
+                    <option value="POPULAR">Popular</option>
+                    <option value="PACKAGE">Package</option>
+                </select>
+            </div>
         </div>
 
-        <!-- TABLE -->
-        <CourseTable :course="filteredCourses" @edit="openEditModal" @delete="openDelete" @view="openView" />
+        <div class="overflow-hidden">
+            <CourseTable :course="filteredCourses" @edit="openEditModal" @delete="openDelete" @view="openView" />
+        </div>
+
         <CreateCourseModal v-if="showCreate" @close="showCreate = false" @created="fetchCourse" />
         <EditCourseModal v-if="showEdit" :course="selectedCourse" @close="showEdit = false" @updated="fetchCourse" />
         <DeleteCourseModal v-if="showDelete" :course="deletingCourse" @close="closeDelete" @deleted="fetchCourse" />

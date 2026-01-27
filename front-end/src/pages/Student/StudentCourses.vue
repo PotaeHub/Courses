@@ -75,40 +75,39 @@ onMounted(() => {
 const goHome = () => route.push('/')
 </script>
 <template>
-    <div class="min-h-screen bg-[#F9FBFC] pb-20 font-sans">
+    <div class="min-h-screen bg-[#FBFBFC] pb-20 font-sans antialiased">
 
-        <div class="bg-white border-b border-gray-100 shadow-sm">
-            <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="bg-white border-b border-gray-50">
+            <div class="max-w-7xl mx-auto px-6 py-10">
                 <button @click="goHome"
-                    class="group flex items-center text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors mb-6">
+                    class="group flex items-center text-[13px] font-bold text-gray-400 hover:text-indigo-600 transition-all mb-8 uppercase tracking-wider">
                     <svg xmlns="http://www.w3.org/2000/svg"
                         class="h-4 w-4 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none"
                         viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
                     </svg>
-                    กลับสู่หน้าหลัก
+                    กลับไปหน้าโฮม
                 </button>
 
-                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 class="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">
+                        <h1 class="text-3xl md:text-4xl font-semibold text-gray-900 tracking-tight">
                             สำรวจคอร์สเรียน
                         </h1>
-                        <p class="text-gray-500 mt-2 text-lg">
-                            ยกระดับทักษะของคุณด้วยคอร์สเรียนที่คัดสรรมาอย่างดี
+                        <p class="text-gray-400 mt-2 text-base font-medium">
+                            ยกระดับทักษะของคุณด้วยคอร์สเรียนที่คัดสรรมาอย่างดีจากผู้เชี่ยวชาญ
                         </p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="max-w-7xl mx-auto px-6 -mt-10">
-            <div
-                class="bg-white rounded-3xl shadow-xl shadow-indigo-900/5 border border-gray-100 p-5 md:p-6 mb-10 transition-all">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div class="max-w-7xl mx-auto px-6 -mt-8">
+            <div class="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-100 p-6 mb-12">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
 
-                    <div class="md:col-span-4 relative">
-                        <span class="absolute inset-y-0 left-4 flex items-center text-gray-400">
+                    <div class="md:col-span-4 relative group">
+                        <span class="absolute inset-y-0 left-4 flex items-center text-gray-300 group-focus-within:text-indigo-500 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                                 stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -116,20 +115,19 @@ const goHome = () => route.push('/')
                             </svg>
                         </span>
                         <input v-model="keyword" placeholder="ค้นหาชื่อคอร์ส..."
-                            class="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-gray-700" />
+                            class="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50/50 border border-transparent focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-50/50 transition-all outline-none text-gray-600 text-sm" />
                     </div>
 
                     <div class="md:col-span-3">
                         <select v-model="categoryId"
-                            class="filter-select appearance-none bg-no-repeat bg-[right_1rem_center]"
-                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-size: .65em auto;">
+                            class="w-full px-4 py-3.5 rounded-2xl bg-gray-50/50 border border-transparent focus:bg-white focus:border-indigo-100 outline-none text-sm text-gray-600 appearance-none cursor-pointer transition-all">
                             <option value="">ทุกหมวดหมู่</option>
                             <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
                     </div>
 
                     <div class="md:col-span-2">
-                        <select v-model="type" class="filter-select">
+                        <select v-model="type" class="w-full px-4 py-3.5 rounded-2xl bg-gray-50/50 border border-transparent focus:bg-white focus:border-indigo-100 outline-none text-sm text-gray-600 appearance-none cursor-pointer transition-all">
                             <option value="">ทุกประเภท</option>
                             <option value="GENERAL">คอร์สทั่วไป</option>
                             <option value="POPULAR">ยอดนิยม</option>
@@ -138,77 +136,79 @@ const goHome = () => route.push('/')
                     </div>
 
                     <div class="md:col-span-3 flex items-center gap-2">
-                        <input v-model="minPrice" type="number" placeholder="ต่ำสุด" class="price-input" />
-                        <div class="h-[2px] w-4 bg-gray-200"></div>
-                        <input v-model="maxPrice" type="number" placeholder="สูงสุด" class="price-input" />
+                        <input v-model="minPrice" type="number" placeholder="ต่ำสุด" 
+                            class="w-full px-4 py-3.5 rounded-2xl bg-gray-50/50 border border-transparent focus:bg-white focus:border-indigo-100 outline-none text-sm transition-all" />
+                        <span class="text-gray-300">—</span>
+                        <input v-model="maxPrice" type="number" placeholder="สูงสุด" 
+                            class="w-full px-4 py-3.5 rounded-2xl bg-gray-50/50 border border-transparent focus:bg-white focus:border-indigo-100 outline-none text-sm transition-all" />
                     </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3 mt-6 pt-6 border-t border-gray-50">
-                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">เรียงตามราคา:</span>
-                    <button @click="toggleSort('asc')" :class="sortPrice === 'asc' ? 'tag-active' : 'tag'">
-                        <span v-if="sortPrice === 'asc'" class="mr-1">✓</span> ราคาต่ำไปสูง
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] ml-1">Sort by price:</span>
+                    <button @click="toggleSort('asc')" 
+                        :class="sortPrice === 'asc' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'"
+                        class="px-5 py-2 rounded-xl text-xs font-semibold transition-all duration-300">
+                        ราคาต่ำไปสูง
                     </button>
-                    <button @click="toggleSort('desc')" :class="sortPrice === 'desc' ? 'tag-active' : 'tag'">
-                        <span v-if="sortPrice === 'desc'" class="mr-1">✓</span> ราคาสูงไปต่ำ
+                    <button @click="toggleSort('desc')" 
+                        :class="sortPrice === 'desc' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'"
+                        class="px-5 py-2 rounded-xl text-xs font-semibold transition-all duration-300">
+                        ราคาสูงไปต่ำ
                     </button>
                 </div>
             </div>
 
             <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 <div v-for="i in 6" :key="i"
-                    class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm animate-pulse">
-                    <div class="h-48 bg-gray-100 rounded-2xl mb-4"></div>
-                    <div class="h-6 bg-gray-100 rounded-lg w-3/4 mb-3"></div>
-                    <div class="h-4 bg-gray-100 rounded-lg w-full mb-2"></div>
-                    <div class="h-4 bg-gray-100 rounded-lg w-1/2"></div>
+                    class="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm animate-pulse">
+                    <div class="h-52 bg-gray-50 rounded-3xl mb-5"></div>
+                    <div class="h-6 bg-gray-50 rounded-lg w-3/4 mb-4"></div>
+                    <div class="space-y-2">
+                        <div class="h-3 bg-gray-50 rounded-lg w-full"></div>
+                        <div class="h-3 bg-gray-50 rounded-lg w-5/6"></div>
+                    </div>
                 </div>
             </div>
 
-            <div v-else-if="courses.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div v-else-if="courses.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
                 <CourseCards v-for="course in courses" :key="course.id" :course="course"
-                    class="hover:translate-y-[-8px] transition-all duration-300" />
+                    class="hover:translate-y-[-10px] transition-all duration-500 ease-out" />
             </div>
 
             <div v-else
-                class="text-center py-24 bg-white rounded-[2.5rem] border border-dashed border-gray-200 shadow-inner">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-gray-50 rounded-full mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-300" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                class="flex flex-col items-center justify-center py-24 bg-white rounded-[3rem] border border-gray-50 shadow-sm">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-gray-50 rounded-full mb-6">
+                    <svg class="h-10 w-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900">ไม่พบคอร์สที่ค้นหา</h3>
-                <p class="text-gray-500 mt-2">ลองล้างการค้นหา หรือเปลี่ยนคีย์เวิร์ดใหม่ดูนะคะ</p>
+                <h3 class="text-xl font-semibold text-gray-900">ไม่พบคอร์สที่ค้นหา</h3>
+                <p class="text-gray-400 mt-2 font-medium">ลองปรับเปลี่ยนตัวกรอง หรือค้นหาด้วยชื่ออื่นดูนะคะ</p>
                 <button @click="keyword = ''; categoryId = ''; type = ''; minPrice = ''; maxPrice = ''; sortPrice = ''"
-                    class="mt-6 text-indigo-600 font-bold hover:text-indigo-700 underline underline-offset-4">
-                    แสดงคอร์สทั้งหมด
+                    class="mt-8 px-8 py-3 bg-gray-900 text-white rounded-2xl text-sm font-semibold hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200">
+                    รีเซ็ตการค้นหาทั้งหมด
                 </button>
             </div>
 
-            <div v-if="totalPages > 1" class="flex justify-center items-center gap-2 mt-16">
-                <button @click="fetchCourses(page - 1)" :disabled="page === 1" class="page-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
+            <div v-if="totalPages > 1" class="flex justify-center items-center gap-4 mt-20">
+                <button @click="fetchCourses(page - 1)" :disabled="page === 1" 
+                    class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-gray-100 text-gray-400 hover:text-indigo-600 hover:border-indigo-100 disabled:opacity-30 transition-all shadow-sm">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
 
-                <div class="flex items-center gap-1 bg-white border border-gray-200 px-2 py-1.5 rounded-2xl shadow-sm">
-                    <span
-                        class="w-10 h-10 flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold rounded-xl text-sm italic">
-                        {{ page }}
-                    </span>
-                    <span class="px-2 text-gray-400 font-medium">/</span>
-                    <span class="w-10 h-10 flex items-center justify-center text-gray-500 font-bold text-sm">
-                        {{ totalPages }}
-                    </span>
+                <div class="flex items-center px-6 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm font-semibold text-sm">
+                    <span class="text-indigo-600 italic">Page {{ page }}</span>
+                    <span class="mx-3 text-gray-200">|</span>
+                    <span class="text-gray-400">{{ totalPages }}</span>
                 </div>
 
-                <button @click="fetchCourses(page + 1)" :disabled="page === totalPages" class="page-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
+                <button @click="fetchCourses(page + 1)" :disabled="page === totalPages" 
+                    class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-gray-100 text-gray-400 hover:text-indigo-600 hover:border-indigo-100 disabled:opacity-30 transition-all shadow-sm">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>

@@ -1,55 +1,109 @@
 <script setup>
-import BaseModal from '../BaseModal.vue';
-import { reactive, watch } from 'vue';
+import { ref, watch, computed } from 'vue'
+import api from '../../service/api'
 
-const props = defineProps({ show: Boolean, category: Object });
-const emit = defineEmits(['close', 'save']);
+const props = defineProps({
+  show: Boolean,
+  category: Object
+})
 
-const form = reactive({ name: '', slug: '', icon: '📁' });
+const emit = defineEmits(['close', 'saved'])
 
-watch(() => props.category, (val) => {
-    if (val) Object.assign(form, val);
-    else Object.assign(form, { name: '', slug: '', icon: '📁' });
-});
+const name = ref('')
+const loading = ref(false)
+const error = ref('')
+
+// mode
+const isEdit = computed(() => !!props.category)
+
+// sync when open
+watch(
+  () => props.category,
+  (val) => {
+    name.value = val?.name || ''
+    error.value = ''
+  },
+  { immediate: true }
+)
+
+const close = () => {
+  emit('close')
+  name.value = ''
+  error.value = ''
+}
+
+// save
+const saveCategory = async (e) => {
+    if (!name.value.trim()) {
+    error.value = 'กรุณากรอกชื่อหมวดหมู่'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+
+  try {
+    if (isEdit.value) {
+      // UPDATE
+      await api.put(`/admin/category/${props.category.id}`, {
+        name: name.value
+      })
+    } else {
+      // CREATE
+      await api.post('/admin/category', {
+        name: name.value
+      })
+    }
+
+    emit('saved')
+    close()
+  } catch (err) {
+    console.error(err)
+    error.value = err.response?.data?.message || 'เกิดข้อผิดพลาด'
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
-    <BaseModal :show="show" :title="category ? 'Edit Category' : 'Create Category'" @close="emit('close')">
-        <div class="space-y-6">
-            <div class="flex gap-4">
-                <div class="flex-1">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category
-                        Name</label>
-                    <input v-model="form.name" type="text" placeholder="e.g. Marketing"
-                        class="w-full mt-1 px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold" />
-                </div>
-                <div class="w-24">
-                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Icon</label>
-                    <input v-model="form.icon" type="text"
-                        class="w-full mt-1 px-4 py-3 bg-gray-50 border-none rounded-2xl text-center focus:ring-2 focus:ring-blue-500 outline-none text-lg" />
-                </div>
-            </div>
+  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-white w-full max-w-md rounded-[2rem] border-2 border-black p-8 shadow-xl">
 
-            <div>
-                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Slug (URL
-                    friendly)</label>
-                <div class="flex items-center bg-gray-50 rounded-2xl mt-1 px-4 py-3">
-                    <span class="text-gray-300 text-sm font-mono mr-1">/</span>
-                    <input v-model="form.slug" type="text" placeholder="marketing-strategy"
-                        class="w-full bg-transparent border-none outline-none text-sm font-mono text-blue-600" />
-                </div>
-            </div>
+      <h2 class="text-2xl font-black mb-6">
+        {{ isEdit ? 'Edit Category' : 'Create Category' }}
+      </h2>
 
-            <div class="flex gap-3 pt-4">
-                <button @click="emit('close')"
-                    class="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-bold text-sm hover:bg-gray-200 transition-all">
-                    Cancel
-                </button>
-                <button
-                    class="flex-[2] py-4 rounded-2xl bg-gray-900 text-white font-bold text-sm shadow-xl hover:bg-blue-600 transition-all active:scale-95">
-                    Save Category
-                </button>
-            </div>
-        </div>
-    </BaseModal>
+      <div class="mb-4">
+        <label class="block text-sm font-bold mb-2">Category name</label>
+        <input
+          v-model="name"
+          type="text"
+          placeholder="Enter category name..."
+          class="w-full border-2 border-black rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-black"
+        />
+      </div>
+
+      <p v-if="error" class="text-sm text-red-600 font-bold mb-4">{{ error }}</p>
+
+      <div class="flex justify-end gap-3 mt-8">
+        <button
+          @click="close"
+          class="px-6 py-2 rounded-xl border-2 border-black font-bold hover:bg-gray-100"
+          :disabled="loading"
+        >
+          Cancel
+        </button>
+
+        <button
+          @click="saveCategory"
+          class="px-6 py-2 rounded-xl bg-black text-white font-bold hover:bg-gray-800 disabled:opacity-50"
+          :disabled="loading"
+        >
+          {{ loading ? 'Saving...' : (isEdit ? 'Update' : 'Create') }}
+        </button>
+      </div>
+
+    </div>
+  </div>
 </template>

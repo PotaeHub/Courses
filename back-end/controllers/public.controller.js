@@ -121,8 +121,6 @@ export const getPopularCourses = async (req, res) => {
         res.status(500).json({ message: "Server error" })
     }
 }
-
-
 export const getLatestCourses = async (req, res) => {
     const courses = await prisma.course.findMany({
         where: { status: 'PUBLISHED' },

@@ -8,7 +8,7 @@
                         <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
                             <span class="text-white font-bold text-xl">L</span>
                         </div>
-                        <span class="text-white text-2xl font-bold tracking-tight">LearnHub</span>
+                        <span class="text-white text-2xl font-bold tracking-tight">EduFlex</span>
                     </div>
                     <p class="text-gray-400 leading-relaxed">
                         แพลตฟอร์มการเรียนรู้ออนไลน์ที่มุ่งเน้นการพัฒนาทักษะแห่งอนาคต
@@ -44,13 +44,10 @@
                 <div>
                     <h4 class="text-white font-semibold text-lg mb-6">หมวดหมู่ยอดนิยม</h4>
                     <ul class="space-y-4">
-                        <li><a href="#" class="hover:text-blue-400 transition-colors">การพัฒนาเว็บ (Web Dev)</a></li>
-                        <li><a href="#" class="hover:text-blue-400 transition-colors">การตลาดดิจิทัล</a></li>
-                        <li><a href="#" class="hover:text-blue-400 transition-colors">วิทยาศาสตร์ข้อมูล (Data
-                                Science)</a></li>
-                        <li><a href="#" class="hover:text-blue-400 transition-colors">การออกแบบ UI/UX</a></li>
-                        <li><a href="#" class="hover:text-blue-400 transition-colors">ธุรกิจและการเป็นผู้ประกอบการ</a>
-                        </li>
+                        <li><a href="#" class="hover:text-blue-400 transition-colors">คณิตศาสตร์พื้นฐาน</a></li>
+                        <li><a href="#" class="hover:text-blue-400 transition-colors">ภาษาต่างประเทศ</a></li>
+                        <li><a href="#" class="hover:text-blue-400 transition-colors">วิทยาศาสตร์</a></li>
+                        <li><a href="#" class="hover:text-blue-400 transition-colors">เทคโนโลยีคอมพิวเตอร์</a></li>
                     </ul>
                 </div>
 
@@ -67,7 +64,7 @@
                     </form>
                     <div class="mt-6 flex items-start space-x-3 text-sm">
                         <span class="text-blue-400"><i class="fas fa-envelope"></i></span>
-                        <span>support@learnhub.com</span>
+                        <span>support@eduflex.com</span>
                     </div>
                 </div>
 
@@ -75,7 +72,7 @@
 
             <div
                 class="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 text-sm text-gray-500">
-                <p>© 2024 LearnHub Online. All Rights Reserved.</p>
+                <p>© 2026 EduFlex Online. All Rights Reserved.</p>
                 <div class="flex space-x-6">
                     <a href="#" class="hover:text-gray-300">ข้อกำหนดการใช้งาน</a>
                     <a href="#" class="hover:text-gray-300">นโยบายความเป็นส่วนตัว</a>

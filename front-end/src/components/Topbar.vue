@@ -3,7 +3,8 @@ import { useRoute } from 'vue-router'
 import {
     Bell,
     Search,
-    ChevronRight
+    ChevronRight,
+    User
 } from 'lucide-vue-next'
 import { computed, ref, onMounted } from 'vue'
 import TeacherProfileModal from '../components/Teacher/TeacherProfileModal.vue'

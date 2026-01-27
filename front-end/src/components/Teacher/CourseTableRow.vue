@@ -72,7 +72,7 @@ const getStatusClass = (status = '') => {
         </td>
 
         <td class="px-6 py-5">
-            <p class="text-sm font-black text-slate-800 tracking-tight">฿{{ course.sales.toLocaleString() }}</p>
+            <p class="text-sm font-black text-slate-800 tracking-tight">{{ course.sales.toLocaleString() }} คน</p>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue</p>
         </td>
 

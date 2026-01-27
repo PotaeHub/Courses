@@ -5,7 +5,7 @@
             <!-- Logo & Description -->
             <div class="space-y-3">
                 <h1 class="text-xl font-bold text-white tracking-tight uppercase">
-                    CourseHub
+                    EduFlex
                 </h1>
                 <p class="text-gray-400 text-sm">
                     เรียนรู้ได้ทุกที่ทุกเวลา กับคอร์สออนไลน์คุณภาพสูง
@@ -50,7 +50,7 @@
         </div>
 
         <div class="mt-10 text-center text-gray-500 text-sm">
-            © 2026 CourseHub. All rights reserved.
+            © 2026 EduFlex. All rights reserved.
         </div>
     </footer>
 </template>

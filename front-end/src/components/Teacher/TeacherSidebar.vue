@@ -8,6 +8,7 @@ import {
     User,
     LogOut
 } from 'lucide-vue-next'
+import Swal from 'sweetalert2' // นำเข้า SweetAlert2
 
 const route = useRoute()
 const router = useRouter()
@@ -20,9 +21,43 @@ const menus = [
     { name: 'Profile', icon: User, path: '/teacher/profile' },
 ]
 
-const logout = () => {
-    localStorage.clear()
-    router.push('/login')
+/* ================= LOGOUT WITH SWEETALERT2 ================= */
+const logout = async () => {
+    const result = await Swal.fire({
+        title: 'ยืนยันการออกจากระบบ?',
+        text: "คุณกำลังจะออกจากเซสชันปัจจุบัน",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5', // สี Indigo-600
+        cancelButtonColor: '#1e293b',  // สี Slate-800
+        confirmButtonText: 'ยืนยัน, ออกจากระบบ',
+        cancelButtonText: 'ยกเลิก',
+        reverseButtons: true,
+        background: '#0B1220',         // พื้นหลังสีเดียวกับ Sidebar
+        color: '#cbd5e1',              // สีตัวอักษร Slate-300
+        customClass: {
+            popup: 'rounded-[2rem] border border-slate-800 shadow-2xl',
+            confirmButton: 'rounded-xl px-5 py-2.5 text-sm font-bold',
+            cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-bold'
+        }
+    })
+
+    if (result.isConfirmed) {
+        localStorage.clear()
+
+        // แสดงการแจ้งเตือนสำเร็จสั้นๆ
+        await Swal.fire({
+            title: 'ออกจากระบบสำเร็จ',
+            icon: 'success',
+            timer: 1000,
+            showConfirmButton: false,
+            background: '#0B1220',
+            color: '#cbd5e1',
+            customClass: { popup: 'rounded-[2rem]' }
+        })
+
+        router.push('/login')
+    }
 }
 </script>
 
@@ -30,10 +65,8 @@ const logout = () => {
     <aside
         class="w-64 h-screen sticky top-0 bg-[#0B1220] text-slate-300 p-5 flex flex-col border border-slate-800 rounded-[28px] shadow-2xl overflow-hidden relative">
 
-        <!-- Glow -->
         <div class="absolute -top-10 -left-10 w-32 h-32 bg-indigo-600/10 blur-[50px] pointer-events-none" />
 
-        <!-- Header -->
         <div class="flex items-center gap-3 mb-6 px-2 relative z-10">
             <div
                 class="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-xl">
@@ -47,7 +80,6 @@ const logout = () => {
             </div>
         </div>
 
-        <!-- Menu -->
         <nav class="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10">
             <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-4 mb-4">
                 Overview
@@ -69,26 +101,22 @@ const logout = () => {
             </router-link>
         </nav>
 
-        <!-- Help -->
-        <div class="mt-4 p-4 bg-white/5 rounded-2xl border border-white/5 mb-6">
-            <p class="text-[10px] font-bold text-indigo-400 uppercase">Need Help?</p>
-            <p class="text-[11px] text-slate-500 mt-1">Check our teacher guide for more tips.</p>
+        <div class="mt-4 p-4 bg-indigo-600/5 rounded-2xl border border-indigo-500/10 mb-6">
+            <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Need Help?</p>
+            <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">Check our teacher guide for more tips.</p>
         </div>
 
-        <!-- Logout -->
         <div class="pt-4 border-t border-slate-800">
             <button @click="logout"
-                class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition-all group">
+                class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition-all group active:scale-95">
                 <LogOut class="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-                Logout
+                <span>Logout System</span>
             </button>
         </div>
     </aside>
 </template>
 
 <style scoped>
-@import "tailwindcss";
-
 /* ซ่อน Scrollbar */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -116,8 +144,8 @@ aside {
     }
 }
 
-/* ฟอนต์นุ่มนวล */
 * {
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 </style>

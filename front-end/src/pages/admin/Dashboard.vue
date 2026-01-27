@@ -7,14 +7,24 @@ const loading = ref(false);
 
 
 <template>
-    <div v-if="loading" class="h-[360px] flex items-center justify-center text-gray-400">
-        Loading chart...
+    <div v-if="loading" class="h-[400px] flex flex-col items-center justify-center space-y-4">
+        <div class="w-8 h-8 border-2 border-gray-200 border-t-gray-800 rounded-full animate-spin"></div>
+        <p class="text-sm font-medium text-gray-400 tracking-wide">Preparing dashboard...</p>
     </div>
-    <div class="space-y-10">
-        <!-- 🔢 Stat Cards -->
-        <DashboardStats />
 
-        <!-- 📊 Revenue Chart -->
-        <RevenueChart />
+    <div v-else class="max-w-7xl mx-auto p-6 space-y-12 animate-in fade-in duration-700">
+        
+        <section>
+            <DashboardStats />
+        </section>
+
+        <section class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800">Revenue Overview</h3>
+                <p class="text-sm text-gray-500">Monthly performance insights</p>
+            </div>
+            <RevenueChart />
+        </section>
+
     </div>
 </template>

@@ -53,6 +53,6 @@ const props = defineProps({
 const imageUrl = props.course.image
 
 const goDetail = () => {
-    router.push(`/courses/${props.course.id}`)
+    router.push(`/student/course/${props.course.id}`)
 }
 </script>

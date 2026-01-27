@@ -9,7 +9,11 @@ const keyword = ref('')
 const loading = ref(false)
 const page = ref(1)
 const totalPages = ref(1)
-const route = useRouter()
+const router = useRouter()
+const category = ref([])
+// สำหรับระบบ Tab (ถ้าต้องการกรองตามสถานะเพิ่มในอนาคต)
+const activeTab = ref('all')
+
 const fetchOrders = async () => {
     if (loading.value) return
     loading.value = true
@@ -17,6 +21,9 @@ const fetchOrders = async () => {
         const res = await api.get('/student/mycourses', {
             params: { page: page.value }
         })
+        const ress = await api.get("/student/categories")
+        console.log(ress.data)
+        category.value = ress.data
         orders.value = res.data.orders
         totalPages.value = res.data.totalPages
     } catch (error) {
@@ -26,78 +33,101 @@ const fetchOrders = async () => {
     }
 }
 
-const filteredOrders = computed(() => {
-    if (!keyword.value) return orders.value
-    return orders.value.filter(o =>
-        o.course?.title?.toLowerCase().includes(keyword.value.toLowerCase())
-    )
+// Stats Calculation
+const stats = computed(() => {
+    return {
+        total: orders.value.length,
+        inProgress: orders.value.filter(o => (o.progress || 0) < 100 && (o.progress || 0) > 0).length,
+        completed: orders.value.filter(o => (o.progress || 0) === 100).length
+    }
 })
-const goHome = () => route.push('/')
+
+const filteredOrders = computed(() => {
+    let result = orders.value
+    if (keyword.value) {
+        result = result.filter(o =>
+            o.course?.title?.toLowerCase().includes(keyword.value.toLowerCase())
+        )
+    }
+    // เพิ่ม Logic การกรองตาม Tab (ตัวอย่าง)
+    if (activeTab.value === 'ongoing') result = result.filter(o => (o.progress || 0) < 100)
+    if (activeTab.value === 'completed') result = result.filter(o => (o.progress || 0) === 100)
+
+    return result
+})
+
+const goHome = () => router.push('/')
 onMounted(fetchOrders)
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50/50 py-10">
-        <div class="max-w-6xl mx-auto px-6 space-y-8">
-            <button @click="goHome"
-                class="group flex items-center text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors duration-200">
-                <svg xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200"
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                กลับไปหน้าหลัก
-            </button>
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-                        คอร์สของฉัน
-                    </h1>
-                    <p class="text-gray-500 mt-1">จัดการและเข้าเรียนคอร์สที่คุณชำระเงินแล้ว</p>
-                </div>
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10 px-4 md:px-10">
+        <div class="max-w-7xl mx-auto space-y-10">
 
-                <div class="relative w-full md:w-80">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </span>
-                    <input v-model="keyword" type="text" placeholder="ค้นหาชื่อคอร์สของคุณ..."
-                        class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none" />
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <button @click="goHome"
+                    class="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition">
+                    <span class="text-xl">←</span> กลับหน้าหลัก
+                </button>
+
+                <div class="relative w-full md:w-96">
+                    <input v-model="keyword" type="text" placeholder="ค้นหาคอร์สที่ชำระเงินแล้ว..."
+                        class="w-full pl-11 pr-4 py-3 rounded-2xl bg-white shadow-sm border border-gray-200 focus:ring-4 focus:ring-indigo-100 focus:outline-none" />
+                    <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
                 </div>
             </div>
 
-            <hr class="border-gray-200">
-
-            <div v-if="loading && orders.length === 0" class="grid grid-cols-1 gap-6">
-                <div v-for="i in 3" :key="i" class="h-32 w-full bg-gray-200 animate-pulse rounded-2xl"></div>
+            <!-- Title -->
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">คอร์สที่ชำระเงินแล้ว</h1>
+                <p class="text-gray-500 text-sm mt-1">รายการคอร์สทั้งหมดที่คุณสามารถเข้าเรียนได้</p>
             </div>
 
-            <div v-else-if="filteredOrders.length > 0" class="grid grid-cols-1 gap-6">
-                <OrderCard v-for="order in filteredOrders" :key="order.id" :order="order"
-                    class="hover:shadow-md transition-shadow duration-300" />
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="stat-card">📚 คอร์สทั้งหมด <span>{{ stats.total }}</span></div>
             </div>
 
-            <div v-else class="flex flex-col items-center justify-center py-20 text-center">
-                <div class="bg-gray-100 p-6 rounded-full mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900">ไม่พบคอร์สเรียน</h3>
-                <p class="text-gray-500 max-w-xs mx-auto">
-                    {{ keyword ? `ไม่พบผลลัพธ์สำหรับ "${keyword}"` : 'คุณยังไม่มีคอร์สเรียนในขณะนี้' }}
-                </p>
-                <button v-if="!keyword" @click="$router.push('/courses')"
-                    class="mt-6 text-indigo-600 font-semibold hover:text-indigo-500">
-                    ไปเลือกดูคอร์สเรียนทั้งหมด →
+            <!-- Tabs -->
+            <div class="flex gap-3 border-b">
+                <button v-for="tab in ['all', 'ongoing', 'completed']" :key="tab" @click="activeTab = tab"
+                    class="px-4 py-2 rounded-t-xl text-sm font-semibold"
+                    :class="activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-800'">
+                    {{ tab === 'all' || 'ทั้งหมด' }}
                 </button>
             </div>
+
+            <!-- Loading -->
+            <div v-if="loading && orders.length === 0" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div v-for="i in 6" :key="i" class="h-48 bg-gray-200 animate-pulse rounded-2xl"></div>
+            </div>
+
+            <!-- Orders -->
+            <div v-else-if="filteredOrders.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <OrderCard v-for="order in filteredOrders" :key="order.id" :order="order" />
+            </div>
+
+            <!-- Empty -->
+            <div v-else class="bg-white rounded-3xl p-16 text-center shadow-sm">
+                <p class="text-5xl mb-4">📭</p>
+                <p class="text-gray-500">ยังไม่มีคอร์สที่ชำระเงิน</p>
+            </div>
+
         </div>
     </div>
 </template>
+
+<style scoped>
+@import "tailwindcss";
+
+.stat-card {
+    @apply bg-white rounded-2xl shadow-sm p-6 flex justify-between items-center text-gray-700 font-semibold;
+}
+
+.stat-card span {
+    @apply text-xl text-indigo-600 font-bold;
+}
+</style>
+
+<!-- script setup ใช้ logic เดิมทั้งหมด ไม่ต้องแก้ -->
