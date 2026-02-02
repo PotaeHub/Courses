@@ -107,52 +107,6 @@ async function main() {
         })
     }
 
-    // ================= ORDERS + PAYMENTS =================
-    const courses = await prisma.course.findMany({ take: 2 })
-
-    for (const course of courses) {
-        // 1️⃣ Order
-        const order = await prisma.order.create({
-            data: {
-                userId: student.id,
-                courseId: course.id,
-                amount: Math.floor(course.price),
-                status: 'PAID'
-            }
-        })
-
-        // 2️⃣ Payment (ผูกกับ Order)
-        await prisma.payment.create({
-            data: {
-                userId: student.id,
-                courseId: course.id,
-                orderId: order.id,
-                method: "PROMPTPAY",
-                amount: course.price,
-                status: 'COMPLETED',
-                slip: '/uploads/payments/sample-slip.jpg'
-            }
-        })
-
-        // 3️⃣ Enrollment
-        const enrollment = await prisma.enrollment.create({
-            data: {
-                userId: student.id,
-                courseId: course.id,
-                status: 'ENROLLED'
-            }
-        })
-
-        // 4️⃣ StudentCourse
-        await prisma.studentCourse.create({
-            data: {
-                studentId: student.id,
-                courseId: course.id,
-                progress: Math.floor(Math.random() * 100),
-                enrollmentId: enrollment.id
-            }
-        })
-    }
 
     console.log('🌱 Seed completed successfully')
 }

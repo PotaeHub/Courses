@@ -69,6 +69,8 @@ onMounted(async () => {
 </template>
 
 <style>
+@import "tailwindcss";
+
 @keyframes fadeIn {
     from {
         opacity: 0;

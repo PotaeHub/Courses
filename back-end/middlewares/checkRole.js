@@ -5,6 +5,7 @@ export const Roles = (...roles) => {
         if (!req.user) {
             throw new AppError("Unauthorized", 401);
         }
+        
         if (!allowRoles.includes(req.user.role)) {
             throw new AppError("Forbidden", 403);
         }

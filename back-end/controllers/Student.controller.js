@@ -14,42 +14,58 @@ export const getCategories = asyncHandler(async (req, res) => {
 });
 // =================== Courses ===================
 export const getCourses = asyncHandler(async (req, res) => {
+  const userId = req.user?.id
+
   const courses = await prisma.course.findMany({
     where: { status: "PUBLISHED" },
     include: {
       category: true,
       teacher: true,
+      enrollments: userId
+        ? {
+          where: { userId },
+          select: { id: true }
+        }
+        : false
     },
     orderBy: { createdAt: "desc" },
-  });
-  res.json(courses);
-});
-export const getCourseDetail = asyncHandler(async (req, res) => {
-  const courseId = parseInt(req.params.id);
+  })
+
+  const result = courses.map(c => ({
+    ...c,
+    isEnrolled: c.enrollments ? c.enrollments.length > 0 : false
+  }))
+
+  res.json(result)
+})
+
+export const getCourseDetail = async (req, res) => {
+  const courseId = Number(req.params.id)
+  const userId = req.user?.id
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: {
-      category: true,
-      teacher: true,
-      lessons: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          videos: true, // ดึงวิดีโอแต่ละบทเรียน
-        },
-      },
-      reviews: {
-        include: { user: true }, // ดึงชื่อผู้รีวิว
-      },
-    },
-  });
+      lessons: { include: { videos: true } },
+      enrollments: userId
+        ? { where: { userId }, select: { status: true } }
+        : false
+    }
+  })
 
-  if (!course) {
-    return res.status(404).json({ message: "Course not found" });
-  }
+  if (!course) return res.status(404).json({ message: "Not found" })
 
-  res.json(course);
-});
+  const enrollment = course.enrollments?.[0]
+  const approved = enrollment?.status === "APPROVED"
+
+  res.json({
+    ...course,
+    lessons: approved ? course.lessons : [],
+    enrollmentStatus: enrollment?.status || null
+  })
+}
+
+
 
 export const studentDashboard = async (req, res) => {
   try {
@@ -134,116 +150,145 @@ export const studentDashboard = async (req, res) => {
   }
 };
 export const myCourses = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { status } = req.query;
+  const userId = req.user.id
 
-    const whereEnrollment = {
-      studentId: userId,
-      ...(status && {
-        enrollment: {
-          status,
-        },
-      }),
-    };
+  const enrollments = await prisma.enrollment.findMany({
+    where: { userId },
+    include: {
+      course: {
+        select: {
+          id: true,
+          title: true,
+          image: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  })
 
-    const courses = await prisma.studentCourse.findMany({
-      where: whereEnrollment,
-      include: {
-        enrollment: {
-          select: { status: true },
-        },
-        course: {
-          select: {
-            id: true,
-            title: true,
-            image: true,
-          },
-        },
-      },
-    });
+  const result = enrollments.map(e => ({
+    courseId: e.course.id,
+    title: e.course.title,
+    image: e.course.image,
+    status: e.status,
+    canAccess: e.status === "APPROVED"
+  }))
 
-    res.json(
-      courses.map((c) => ({
-        courseId: c.course.id,
-        title: c.course.title,
-        image: c.course.image,
-        progress: c.progress,
-        status: c.enrollment.status,
-      })),
-    );
-  } catch (err) {
-    res.status(500).json({ message: "Cannot load courses" });
-  }
-};
+  res.json(result)
+}
+
+
 export const courseLessons = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const courseId = Number(req.params.courseId);
+    const userId = req.user.id
+    const courseId = Number(req.params.courseId)
 
-    const enrolled = await prisma.enrollment.findUnique({
+    // 1. หา enrollment ก่อน
+    const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: {
           userId,
           courseId,
         },
       },
-    });
+    })
 
-    if (!enrolled) {
-      return res.status(403).json({ message: "Not enrolled" });
+    if (!enrollment) {
+      return res.status(403).json({ message: "Not enrolled" })
     }
 
+    // 2. ดึง lesson + progress (ตาม enrollmentId)
     const lessons = await prisma.lesson.findMany({
       where: { courseId },
       orderBy: { sortOrder: "asc" },
       include: {
         videos: true,
-        progress: {
-          where: { userId },
-          select: { isDone: true },
+        progresses: {
+          where: {
+            enrollmentId: enrollment.id,
+          },
+          select: {
+            isCompleted: true,
+          },
         },
       },
-    });
+    })
 
-    res.json(
-      lessons.map((l) => ({
-        lessonId: l.id,
-        title: l.title,
-        content: l.content,
-        videos: l.videos,
-        isDone: l.progress[0]?.isDone || false,
-      })),
-    );
+    // 3. แปลง progress จาก array → boolean
+    const result = lessons.map((l) => ({
+      lessonId: l.id,
+      title: l.title,
+      content: l.content,
+      videos: l.videos,
+      isCompleted: l.progresses[0]?.isCompleted || false,
+    }))
+
+    res.json(result)
   } catch (err) {
-    res.status(500).json({ message: "Load lessons failed" });
+    console.error("courseLessons error:", err)
+    res.status(500).json({ message: "Load lessons failed" })
   }
-};
+}
+
 export const updateProgress = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { lessonId, isDone } = req.body;
+    const userId = req.user.id
+    const { lessonId } = req.body
 
-    await prisma.progress.upsert({
+    if (!lessonId) {
+      return res.status(400).json({ message: "lessonId is required" })
+    }
+
+    // 1. หา enrollment จาก lesson → course
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { courseId: true },
+    })
+
+    if (!lesson) {
+      return res.status(404).json({ message: "Lesson not found" })
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
       where: {
-        userId_lessonId: {
+        userId_courseId: {
           userId,
+          courseId: lesson.courseId,
+        },
+      },
+    })
+
+    if (!enrollment) {
+      return res.status(403).json({ message: "Not enrolled" })
+    }
+
+    // 2. upsert LessonProgress
+    await prisma.lessonProgress.upsert({
+      where: {
+        enrollmentId_lessonId: {
+          enrollmentId: enrollment.id,
           lessonId,
         },
       },
-      update: { isDone },
-      create: {
-        userId,
-        lessonId,
-        isDone,
+      update: {
+        isCompleted: true,
+        completedAt: new Date(),
       },
-    });
+      create: {
+        enrollmentId: enrollment.id,
+        lessonId,
+        isCompleted: true,
+        completedAt: new Date(),
+      },
+    })
 
-    res.json({ message: "Progress updated" });
+    res.json({ message: "Lesson completed" })
   } catch (err) {
-    res.status(500).json({ message: "Update progress failed" });
+    console.error("updateProgress error:", err)
+    res.status(500).json({ message: "Update progress failed" })
   }
-};
+}
+
 export const paymentHistory = async (req, res) => {
   const userId = req.user.id;
 
@@ -439,3 +484,48 @@ export const studentGetCategories = async (req, res) => {
     res.status(500).json({ message: "Fetch categories failed" });
   }
 };
+export const getCourseReviews = async (req, res) => {
+  const { courseId } = req.params
+
+  try {
+    const reviews = await prisma.review.findMany({
+      where: { courseId: Number(courseId) },
+      include: {
+        user: {
+          select: { name: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+
+    res.json(reviews)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "Load reviews failed" })
+  }
+}
+export const getLessonProgress = async (req, res) => {
+  const userId = req.user.id
+  const courseId = Number(req.params.courseId)
+
+  const enrollment = await prisma.enrollment.findUnique({
+    where: {
+      userId_courseId: { userId, courseId }
+    }
+  })
+
+  if (!enrollment || enrollment.status !== "APPROVED") {
+    return res.status(403).json({
+      message: "Course not approved yet"
+    })
+  }
+
+  const progress = await prisma.lessonProgress.findMany({
+    where: { userId, courseId },
+    orderBy: { lessonId: "asc" }
+  })
+
+  res.json(progress)
+}
+
+

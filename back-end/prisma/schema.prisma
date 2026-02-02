@@ -36,19 +36,18 @@ enum PaymentMethod {
 enum OrderStatus {
   PENDING
   PAID
-  CANCELLED
 }
 
 enum PaymentStatus {
   PENDING
   COMPLETED
   FAILED
+  WAITING_CONFIRM
 }
 
 enum EnrollmentStatus {
-  ENROLLED
-  COMPLETED
-  DROPPED
+  PENDING
+  APPROVED
 }
 
 /**
@@ -169,17 +168,19 @@ model LessonVideo {
  * ==================== ENROLLMENT ====================
  */
 model Enrollment {
-  id         Int              @id @default(autoincrement())
-  userId     Int
-  courseId   Int
-  status     EnrollmentStatus @default(ENROLLED)
-  enrolledAt DateTime         @default(now())
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  courseId  Int
+  status    EnrollmentStatus @default(PENDING)
+  createdAt DateTime         @default(now())
 
-  user       User             @relation(fields: [userId], references: [id])
-  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progresses LessonProgress[]
+  user             User             @relation(fields: [userId], references: [id])
+  course           Course           @relation(fields: [courseId], references: [id])
+  order            Order            @relation(fields: [orderId], references: [id])
+  orderId          Int
+  lessonProgresses LessonProgress[]
 
-  @@unique([userId, courseId])
+  @@unique([userId, courseId]) // กัน enroll ซ้ำ
 }
 
 /**
@@ -196,11 +197,14 @@ model Order {
   user   User   @relation(fields: [userId], references: [id])
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  payment Payment?
+  payment     Payment?
+  enrollments Enrollment[]
+
+  @@unique([userId, courseId])
 }
 
 /**
- * ==================== PAYMENT ====================
+ * ==================== Payment ====================
  */
 model Payment {
   id       Int @id @default(autoincrement())
@@ -209,13 +213,17 @@ model Payment {
   courseId Int
 
   method PaymentMethod
-  slip   String?
   amount Float
   status PaymentStatus @default(PENDING)
 
+  providerRef String? // ← transactionId จากธนาคาร
+  qrRef       String? // ← reference/orderNo ที่ส่งไป QR
+
+  slip String?
+
   order  Order  @relation(fields: [orderId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

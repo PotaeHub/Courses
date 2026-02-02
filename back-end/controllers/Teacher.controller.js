@@ -73,9 +73,9 @@ export const getTeacherCourses = asyncHandler(async (req, res) => {
       course.reviews.length === 0
         ? null
         : (
-            course.reviews.reduce((s, r) => s + r.rating, 0) /
-            course.reviews.length
-          ).toFixed(1);
+          course.reviews.reduce((s, r) => s + r.rating, 0) /
+          course.reviews.length
+        ).toFixed(1);
 
     return {
       id: course.id,
@@ -125,9 +125,9 @@ export const getIDCourses = asyncHandler(async (req, res) => {
     ...l,
     videos: Array.isArray(l.videoUrl)
       ? l.videoUrl.map((v, idx) => ({
-          id: idx,
-          url: `${process.env.VITE_BACKEND_URL}${v}`,
-        }))
+        id: idx,
+        url: `${process.env.VITE_BACKEND_URL}${v}`,
+      }))
       : [],
   }));
 
@@ -140,29 +140,12 @@ export const getIDCourses = asyncHandler(async (req, res) => {
     },
   });
 });
-
-// export const getAllCourses = asyncHandler(async (req, res) => {
-//     const course = await prisma.course.findMany({
-//         include: {
-//             lessons: true
-//         }
-//     })
-//     if (!course) AppError("Couse not Found!", 400);
-//     res.status(200).json({
-//         success: true,
-//         course
-//     })
-// })
-// Create Course
 export const createTeacherCourse = asyncHandler(async (req, res) => {
   const teacherId = req.user.id;
   const { title, description, price, status, categoryId } = req.body;
 
   if (!title || price === undefined)
     throw new AppError("Title and price are required", 400);
-  const courseStatus = ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(status)
-    ? status
-    : "DRAFT";
 
   const imageFile = req.files?.find((f) => f.fieldname === "image");
   const imageUrl = imageFile
@@ -177,12 +160,13 @@ export const createTeacherCourse = asyncHandler(async (req, res) => {
         title,
         description,
         price: Number(price),
-        status: courseStatus,
+        status: "DRAFT",
         image: imageUrl,
         categoryId: categoryId ? Number(categoryId) : null,
         teacherId,
       },
     });
+
 
     for (let i = 0; i < lessons.length; i++) {
       const lesson = lessons[i];
@@ -490,3 +474,60 @@ export const getStudents = asyncHandler(async (req, res) => {
 
   res.json({ success: true, students });
 });
+export const myTeachingCourses = async (req, res) => {
+  const teacherId = req.user.id;
+
+  const courses = await prisma.course.findMany({
+    where: {
+      teacherId,
+    },
+    include: {
+      category: true,
+      _count: {
+        select: {
+          enrollments: true,
+          lessons: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  res.json({
+    success: true,
+    courses: courses.map(c => ({
+      id: c.id,
+      title: c.title,
+      image: c.image,
+      price: c.price,
+      status: c.status,
+      students: c._count.enrollments,
+      lessons: c._count.lessons,
+    })),
+  });
+};
+export const publishCourse = asyncHandler(async (req, res) => {
+  const teacherId = req.user.id
+  const courseId = Number(req.params.id)
+
+  const course = await prisma.course.findUnique({
+    where: { id: courseId }
+  })
+
+  if (!course || course.teacherId !== teacherId) {
+    throw new AppError("Course not found or unauthorized", 404)
+  }
+
+  const updated = await prisma.course.update({
+    where: { id: courseId },
+    data: { status: "PUBLISHED" }
+  })
+
+  res.json({
+    success: true,
+    message: "Course published",
+    course: updated
+  })
+})

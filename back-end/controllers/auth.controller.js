@@ -23,7 +23,7 @@ export const login = asyncHandler(async (req, res) => {
     role: user.role,
     email: user.email,
   };
-  const accessToken = jwt.sign(payload, process.env.ACCSSES_TOKEN, {
+  const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN, {
     expiresIn: "1d",
   });
   const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN, {

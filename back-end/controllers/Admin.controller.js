@@ -401,18 +401,16 @@ export const createCourseWithLessons = asyncHandler(async (req, res) => {
   }
 
   /* ================= IMAGE ================= */
-  // 🔹 ต้องตรงกับ multer
-  const imageUrl = image ? `/uploads/courses/images/${image.filename}` : null;
+  const imageUrl = image
+    ? `/uploads/courses/images/${image.filename}`
+    : null;
 
   /* ================= PARSE LESSONS ================= */
   let lessonArray = [];
-
   if (lessons) {
     try {
       lessonArray = JSON.parse(lessons);
-      if (!Array.isArray(lessonArray)) {
-        throw new Error();
-      }
+      if (!Array.isArray(lessonArray)) throw new Error();
     } catch {
       throw new AppError("Invalid lessons format", 400);
     }
@@ -420,15 +418,21 @@ export const createCourseWithLessons = asyncHandler(async (req, res) => {
 
   /* ================= MAP LESSON + VIDEO ================= */
   const lessonsData = lessonArray.map((lesson, index) => {
-    const videoFile = lessonVideos[index] || null;
+    const videoFile = lessonVideos[index];
 
     return {
       title: lesson.title,
       content: lesson.content ?? null,
       sortOrder: lesson.sortOrder ?? index + 1,
-      videoUrl: videoFile
-        ? `/uploads/lessons/videos/${videoFile.filename}`
-        : null,
+
+      // ✅ ต้องใช้ relation videos
+      videos: videoFile
+        ? {
+          create: {
+            url: `/uploads/lessons/videos/${videoFile.filename}`,
+          },
+        }
+        : undefined,
     };
   });
 
@@ -441,12 +445,17 @@ export const createCourseWithLessons = asyncHandler(async (req, res) => {
       price: Number(price),
       type,
       categoryId: category?.id ?? null,
-      teacherId: req.user?.id ?? null,
+      teacherId: req.user.id,
 
-      lessons: lessonsData.length ? { create: lessonsData } : undefined,
+      lessons: lessonsData.length
+        ? { create: lessonsData }
+        : undefined,
     },
     include: {
-      lessons: { orderBy: { sortOrder: "asc" } },
+      lessons: {
+        orderBy: { sortOrder: "asc" },
+        include: { videos: true }, // ✅ สำคัญ
+      },
       category: true,
     },
   });
@@ -457,6 +466,7 @@ export const createCourseWithLessons = asyncHandler(async (req, res) => {
     data: course,
   });
 });
+
 
 export const updateCourseWithLessons = asyncHandler(async (req, res) => {
   const courseId = Number(req.params.id);
@@ -479,10 +489,10 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
   if (!title || price === undefined)
     throw new AppError("Title and price are required.", 400);
   if (isNaN(price)) throw new AppError("Price must be a number.", 400);
-  if (type && !validTypes.includes(type)) {
+  if (type && !validTypes.includes(type))
     throw new AppError("Invalid course type", 400);
-  }
-  // category
+
+  /* ================= CATEGORY ================= */
   let category = null;
   if (categoryId) {
     category = await prisma.category.findUnique({
@@ -491,6 +501,7 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
     if (!category) throw new AppError("Category not found.", 400);
   }
 
+  /* ================= PARSE LESSONS ================= */
   let lessonArray = [];
   try {
     lessonArray = lessons
@@ -501,29 +512,29 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
   } catch {
     throw new AppError("Invalid lessons format", 400);
   }
-  if (!Array.isArray(lessonArray)) {
+  if (!Array.isArray(lessonArray))
     throw new AppError("Lessons must be an array", 400);
-  }
 
   const parsedDeletedLessonIds = deletedLessonIds
     ? Array.isArray(deletedLessonIds)
-      ? deletedLessonIds
-      : JSON.parse(deletedLessonIds)
+      ? deletedLessonIds.map(Number)
+      : JSON.parse(deletedLessonIds).map(Number)
     : [];
 
   const updatedCourse = await prisma.$transaction(async (tx) => {
     const course = await tx.course.findUnique({
       where: { id: courseId },
     });
+
     if (!course || course.teacherId !== req.user.id) {
       throw new AppError("You are not allowed to edit this course", 403);
     }
-    // image
+
+    /* ================= UPDATE COURSE ================= */
     const imageUrl = image
       ? `/uploads/courses/images/${image.filename}`
       : course.image;
 
-    // update course only
     await tx.course.update({
       where: { id: courseId },
       data: {
@@ -531,50 +542,64 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
         description,
         price: Number(price),
         type,
-        categoryId: category ? category.id : null,
+        categoryId: category?.id ?? null,
         image: imageUrl,
       },
     });
 
-    // delete lessons
+    /* ================= DELETE LESSONS ================= */
     if (parsedDeletedLessonIds.length) {
       await tx.lesson.deleteMany({
         where: {
-          id: { in: parsedDeletedLessonIds.map(Number) },
+          id: { in: parsedDeletedLessonIds },
           courseId,
         },
       });
     }
 
-    // update / create lessons
+    /* ================= UPDATE / CREATE LESSONS ================= */
     for (let i = 0; i < lessonArray.length; i++) {
       const lesson = lessonArray[i];
+
       const lessonVideo = lessonVideos.find(
         (f) => f.originalname === lesson.videoFileName,
       );
 
-      const videoUrl = lessonVideo
-        ? `/uploads/lessons/videos/${lessonVideo.filename}`
-        : lesson.videoUrl || null;
-
       if (lesson.id) {
+        // 🔁 UPDATE LESSON
         await tx.lesson.update({
           where: { id: lesson.id },
           data: {
             title: lesson.title,
             content: lesson.content,
             sortOrder: i + 1,
-            videoUrl,
+
+            ...(lessonVideo && {
+              videos: {
+                deleteMany: {}, // ลบ video เก่า
+                create: {
+                  url: `/uploads/lessons/videos/${lessonVideo.filename}`,
+                },
+              },
+            }),
           },
         });
       } else {
+        // ➕ CREATE LESSON
         await tx.lesson.create({
           data: {
             courseId,
             title: lesson.title,
             content: lesson.content,
             sortOrder: i + 1,
-            videoUrl,
+
+            ...(lessonVideo && {
+              videos: {
+                create: {
+                  url: `/uploads/lessons/videos/${lessonVideo.filename}`,
+                },
+              },
+            }),
           },
         });
       }
@@ -583,11 +608,14 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
     return tx.course.findUnique({
       where: { id: courseId },
       include: {
-        lessons: { orderBy: { sortOrder: "asc" } },
+        lessons: {
+          orderBy: { sortOrder: "asc" },
+          include: { videos: true },
+        },
       },
     });
   });
-  // console.log("Updated Course:", updatedCourse);
+
   res.json({
     message: "Course updated successfully",
     course: updatedCourse,
@@ -693,14 +721,32 @@ export const getRevenueChart = async (req, res) => {
 };
 // Payment
 export const getAllPayments = async (req, res) => {
-  const payments = await prisma.payment.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { name: true } },
-      course: { select: { title: true } },
-      order: true,
-    },
-  });
+  try {
+    const payments = await prisma.payment.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true } },
+        course: { select: { title: true } },
+        order: true,
+      },
+    });
 
-  res.json(payments);
+    res.json(payments);
+  } catch (err) {
+    console.error("GET PAYMENTS ERROR:", err);
+    res.status(500).json({ message: "Cannot load payments" });
+  }
 };
+export const approveEnrollment = async (req, res) => {
+  const { enrollmentId } = req.params
+
+  const enrollment = await prisma.enrollment.update({
+    where: { id: Number(enrollmentId) },
+    data: { status: "APPROVED" }
+  })
+
+  res.json({
+    success: true,
+    enrollment
+  })
+}

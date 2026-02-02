@@ -8,7 +8,9 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors"
 export const app = express();
 export const port = process.env.PORT || 5001;
-
+import { fileURLToPath, pathToFileURL } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // expose folder uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use(cors({
@@ -19,18 +21,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(errorHandler)
-const loadRoutes = async () => {
-    for (const r of readdirSync("./routes")) {
+
+export const loadRoutes = async (app) => {
+    const routesPath = path.join(__dirname, "routes");
+
+    console.log("📂 Loading routes from:", routesPath);
+
+    for (const file of readdirSync(routesPath)) {
+        if (!file.endsWith(".js")) continue;
+
+        const fullPath = path.join(routesPath, file);
+
         try {
-            const routeModule = await import(`./routes/${r}`);
+            const routeModule = await import(
+                pathToFileURL(fullPath).href
+            );
+
             if (routeModule.default) {
                 app.use("/api", routeModule.default);
-                console.log(`🛜 Loaded route: /api from ${r}`);
+                console.log(`🛜 Loaded: /api ← ${file}`);
             }
-        } catch (error) {
-            console.error(`❌ Error loading route ${r}:`, error);
+        } catch (err) {
+            console.error(`❌ Failed to load ${file}`, err);
         }
     }
 };
-
-await loadRoutes();
+await loadRoutes(app);

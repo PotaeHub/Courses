@@ -1,28 +1,25 @@
 import { Router } from "express"
 import {
-    confirmPayment,
-    uploadPayment
+    adminConfirmPayment,
+    getPaymentQR,
+    markAsTransferred,
 } from "../controllers/Payment.controller.js"
+
 import { upload } from "../middlewares/upload.js"
 import { Roles } from "../middlewares/checkRole.js"
 import { auth } from "../middlewares/auth.js"
 
 const router = Router()
 
+
+// router.post("/payments/mock", auth, createPayment)
+router.post("/payments/confirm-transfer", auth, markAsTransferred)
+router.get("/payments/:orderId/qr", auth, getPaymentQR)
+// ADMIN
 router.post(
-    "/payments",
+    "/admin/payments/:id/approve",
     auth,
-    Roles("STUDENT"),
-    upload.single("slip"),
-    uploadPayment
-)
-
-router.patch(
-    "/payments/:id/confirm",
-    auth,
-    Roles("ADMIN", "TEACHER"),
-    confirmPayment
-)
-
-
+    Roles(["ADMIN"]),
+    adminConfirmPayment
+);
 export default router;

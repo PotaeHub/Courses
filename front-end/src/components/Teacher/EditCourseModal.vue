@@ -20,22 +20,6 @@ const getFileUrl = (path) => {
     if (path.startsWith('http') || path.startsWith('blob:')) return path
     return `${BACKEND}${path}`
 }
-const onImageChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    imageFile.value = file
-    imagePreview.value = URL.createObjectURL(file)
-}
-
-const onImageDrop = (e) => {
-    isDraggingImage.value = false
-    const file = e.dataTransfer.files[0]
-    if (!file) return
-
-    imageFile.value = file
-    imagePreview.value = URL.createObjectURL(file)
-}
 
 /* ================= FORM ================= */
 const form = ref({
@@ -43,7 +27,10 @@ const form = ref({
     title: props.course.name || '',
     description: props.course.description || '',
     price: props.course.price || 0,
-    status: props.course.status || 'DRAFT',
+
+    // ⭐ เก็บ status เดิมไว้ ห้ามเปลี่ยน
+    status: props.course.status,
+
     category: props.course.category || { id: null, name: '' },
     image: props.course.image || null
 })
@@ -62,45 +49,12 @@ const lessons = ref(
         title: l.title,
         content: l.content,
         videoPath: l.videos?.[0]?.url ?? null,
-        videoPreview: l.videos?.[0]?.url
-            ? getFileUrl(l.videos[0].url)
-            : null,
-
+        videoPreview: l.videos?.[0]?.url ? getFileUrl(l.videos[0].url) : null,
         videoFile: null,
         replaceVideo: false,
         isDragging: false
     }))
 )
-
-/* ================= VIDEO HANDLER ================= */
-const handleVideoFile = (index, files) => {
-    const file = files[0]
-    if (!file) return
-
-    lessons.value[index].videoFile = file
-    lessons.value[index].videoPreview = URL.createObjectURL(file)
-    lessons.value[index].replaceVideo = true
-}
-
-/* ================= LESSON ACTIONS ================= */
-const addLesson = () => {
-    lessons.value.push({
-        id: null,
-        title: '',
-        content: '',
-        videoPath: null,
-        videoPreview: null,
-        videoFile: null,
-        replaceVideo: false,
-        isDragging: false
-    })
-}
-
-const removeLesson = index => {
-    const lesson = lessons.value[index]
-    if (lesson.id) deletedLessons.value.push(lesson.id)
-    lessons.value.splice(index, 1)
-}
 
 /* ================= SUBMIT ================= */
 const submit = async () => {
@@ -111,7 +65,10 @@ const submit = async () => {
         payload.append('title', form.value.title)
         payload.append('description', form.value.description)
         payload.append('price', form.value.price)
+
+        // ⭐ ส่ง status เดิมกลับไป
         payload.append('status', form.value.status)
+
         payload.append('categoryId', form.value.category?.id ?? '')
 
         if (imageFile.value) {
@@ -134,11 +91,8 @@ const submit = async () => {
             if (l.replaceVideo) payload.append(`replace_video_lesson_${i}`, '1')
         })
 
-        if (deletedLessons.value.length) {
-            payload.append('deletedLessons', JSON.stringify(deletedLessons.value))
-        }
-
         await api.put(`/teacher/course/${form.value.id}`, payload)
+
         emit('updated')
         emit('close')
     } catch (err) {
@@ -208,6 +162,21 @@ const submit = async () => {
                                 <option value="ARCHIVED">Archived</option>
                             </select>
                         </div>
+                        <!-- STATUS (READ ONLY) -->
+                        <div class="mt-4">
+                            <label class="text-xs font-black uppercase tracking-widest text-slate-400 ml-2">
+                                Status
+                            </label>
+
+                            <div class="mt-2 px-6 py-4 rounded-2xl font-black text-center" :class="{
+                                'bg-green-50 text-green-600': form.status === 'PUBLISHED',
+                                'bg-slate-100 text-slate-500': form.status === 'DRAFT',
+                                'bg-red-50 text-red-500': form.status === 'ARCHIVED'
+                            }">
+                                {{ form.status }}
+                            </div>
+                        </div>
+
                     </div>
 
                     <hr class="border-slate-100" />

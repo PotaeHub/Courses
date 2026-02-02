@@ -155,3 +155,87 @@ export const getStudentsProgressByCourse = asyncHandler(async (req, res) => {
 
     res.json(result)
 })
+
+export const watchProgress = async (req, res) => {
+    try {
+        const userId = Number(req.user.id);
+        const { videoId, watchTime } = req.body;
+
+        if (!videoId || watchTime === undefined) {
+            return res.status(400).json({ message: "ข้อมูลไม่ครบถ้วน" });
+        }
+
+        /* =========================
+          1. ดึง Video และความสัมพันธ์แบบลึก
+        ========================== */
+        const video = await prisma.lessonVideo.findUnique({
+            where: { id: Number(videoId) },
+            include: {
+                lesson: {
+                    include: {
+                        course: true
+                    }
+                }
+            }
+        });
+
+        if (!video || !video.lesson || !video.lesson.course) {
+            return res.status(404).json({ message: "ไม่พบวิดีโอหรือบทเรียนนี้ในระบบ" });
+        }
+
+        const lessonId = video.lesson.id;
+        const courseId = video.lesson.course.id;
+
+        /* =========================
+          2. เช็คการลงทะเบียน (Enrollment)
+        ========================== */
+        const enrollment = await prisma.enrollment.findUnique({
+            where: {
+                userId_courseId: {
+                    userId: userId,
+                    courseId: courseId
+                }
+            }
+        });
+
+        // ตรวจสอบสิทธิ์การเข้าเรียน
+        if (!enrollment || enrollment.status !== "APPROVED") {
+            return res.status(403).json({ message: "คุณไม่มีสิทธิ์เข้าถึงเนื้อหานี้ กรุณารอการอนุมัติ" });
+        }
+
+        /* =========================
+          3. บันทึกความคืบหน้า (Upsert)
+        ========================== */
+        // หมายเหตุ: Schema ของคุณ LessonProgress ผูกกับ enrollmentId และ lessonId
+        await prisma.lessonProgress.upsert({
+            where: {
+                enrollmentId_lessonId: {
+                    enrollmentId: enrollment.id,
+                    lessonId: lessonId
+                }
+            },
+            update: {
+                isCompleted: true,
+                watchedAt: new Date(),
+                completedAt: new Date()
+            },
+            create: {
+                enrollmentId: enrollment.id,
+                lessonId: lessonId,
+                isCompleted: true,
+                watchedAt: new Date(),
+                completedAt: new Date()
+            }
+        });
+
+        res.json({ message: "บันทึกความคืบหน้าเรียบร้อยแล้ว" });
+
+    } catch (err) {
+        console.error("WATCH PROGRESS ERROR:", err);
+        // เช็ค Error เฉพาะทางของ Prisma (ถ้ามี)
+        res.status(500).json({
+            message: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+            error: err.message
+        });
+    }
+}

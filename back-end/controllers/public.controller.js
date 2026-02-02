@@ -1,9 +1,13 @@
 import prisma from "../config/db.js"
 
-
+/**
+ * =========================
+ * PUBLIC COURSES (LIST)
+ * =========================
+ */
 export const getPublicCourses = async (req, res) => {
     const courses = await prisma.course.findMany({
-        where: { status: 'PUBLISHED' },
+        where: { status: "PUBLISHED" },
         include: {
             category: true,
             teacher: { select: { name: true } },
@@ -13,7 +17,7 @@ export const getPublicCourses = async (req, res) => {
 
     const result = courses.map(c => {
         const avg =
-            c.reviews.length
+            c.reviews.length > 0
                 ? c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length
                 : 0
 
@@ -29,55 +33,69 @@ export const getPublicCourses = async (req, res) => {
     res.json(result)
 }
 
+/**
+ * =========================
+ * COURSE DETAIL
+ * =========================
+ */
+
 export const getPublicCourseDetail = async (req, res) => {
     const courseId = Number(req.params.id)
     const userId = req.user?.id || null
+    const role = req.user?.role || null
+
+    if (!courseId) {
+        return res.status(400).json({ message: "Invalid course id" })
+    }
 
     const course = await prisma.course.findFirst({
-        where: { id: courseId, status: 'PUBLISHED' },
+        where: {
+            id: courseId,
+            status: "PUBLISHED"
+        },
         include: {
-            category: { select: { name: true } },
-            teacher: { select: { name: true } },
+            teacher: { select: { id: true, name: true } },
             lessons: {
-                orderBy: { sortOrder: 'asc' },
+                orderBy: { sortOrder: "asc" },
                 include: { videos: true }
-            },
-            reviews: {
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: {
-                        select: { id: true, name: true, image: true }
-                    }
-                }
             }
         }
     })
 
     if (!course) {
-        return res.status(404).json({ message: 'ไม่พบคอร์ส' })
+        return res.status(404).json({ message: "Course not found" })
     }
 
-    const avgRating =
-        course.reviews.length
-            ? (
-                course.reviews.reduce((s, r) => s + r.rating, 0) /
-                course.reviews.length
-            ).toFixed(1)
-            : null
+    let enrollmentStatus = null
+    let isEnrolled = false
 
-    const isEnrolled = userId
-        ? !!(await prisma.enrollment.findUnique({
-            where: { userId_courseId: { userId, courseId } }
-        }))
-        : false
+    if (userId && role === "STUDENT") {
+        const enrollment = await prisma.enrollment.findUnique({
+            where: {
+                userId_courseId: { userId, courseId }
+            },
+            select: {
+                status: true
+            }
+        })
+
+        enrollmentStatus = enrollment?.status || null
+        isEnrolled = enrollment?.status === "APPROVED"
+    }
 
     res.json({
         ...course,
-        avgRating,
-        reviewCount: course.reviews.length,
-        isEnrolled
+
+        // ✅ สำคัญมาก
+        isEnrolled,
+        enrollmentStatus
     })
 }
+/**
+ * =========================
+ * POPULAR COURSES
+ * =========================
+ */
 export const getPopularCourses = async (req, res) => {
     try {
         const courses = await prisma.course.findMany({
@@ -90,15 +108,13 @@ export const getPopularCourses = async (req, res) => {
                 category: true,
                 teacher: { select: { name: true, image: true } },
                 reviews: { select: { rating: true } },
-                _count: {
-                    select: { enrollments: true }
-                }
+                _count: { select: { enrollments: true } }
             }
         })
 
         const result = courses.map(c => {
             const avg =
-                c.reviews.length
+                c.reviews.length > 0
                     ? c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length
                     : 0
 
@@ -121,11 +137,17 @@ export const getPopularCourses = async (req, res) => {
         res.status(500).json({ message: "Server error" })
     }
 }
+
+/**
+ * =========================
+ * LATEST COURSES
+ * =========================
+ */
 export const getLatestCourses = async (req, res) => {
     const courses = await prisma.course.findMany({
-        where: { status: 'PUBLISHED' },
+        where: { status: "PUBLISHED" },
         take: 8,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
             teacher: true,
             category: true,
@@ -135,7 +157,7 @@ export const getLatestCourses = async (req, res) => {
 
     const result = courses.map(c => {
         const avg =
-            c.reviews.length
+            c.reviews.length > 0
                 ? c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length
                 : 0
 
@@ -154,12 +176,23 @@ export const getLatestCourses = async (req, res) => {
     res.json(result)
 }
 
+/**
+ * =========================
+ * CATEGORIES
+ * =========================
+ */
 export const getCategories = async (req, res) => {
     const categories = await prisma.category.findMany({
-        orderBy: { name: 'asc' }
+        orderBy: { name: "asc" }
     })
     res.json(categories)
 }
+
+/**
+ * =========================
+ * PROFILE
+ * =========================
+ */
 export const getProfile = async (req, res) => {
     try {
         const userId = req.user.id
@@ -174,22 +207,12 @@ export const getProfile = async (req, res) => {
         })
 
         if (!user) {
-            return res.status(404).json({ message: 'User not found' })
+            return res.status(404).json({ message: "User not found" })
         }
 
-        // เลือกรูปตาม role
-        let image = user.image
         let profile = null
-
-        if (role === 'TEACHER') {
-            image = user.image
-            profile = user.teacherProfile
-        }
-
-        if (role === 'STUDENT') {
-            image = user.image
-            profile = user.studentProfile
-        }
+        if (role === "TEACHER") profile = user.teacherProfile
+        if (role === "STUDENT") profile = user.studentProfile
 
         res.json({
             success: true,
@@ -198,11 +221,12 @@ export const getProfile = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                image
+                image: user.image,
+                profile
             }
         })
     } catch (error) {
         console.error(error)
-        res.status(500).json({ message: 'Server error' })
+        res.status(500).json({ message: "Server error" })
     }
 }
