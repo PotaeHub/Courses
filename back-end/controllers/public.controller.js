@@ -82,13 +82,29 @@ export const getPublicCourseDetail = async (req, res) => {
         enrollmentStatus = enrollment?.status || null
         isEnrolled = enrollment?.status === "APPROVED"
     }
-
+    console.log("PRE:", course.preTestUrl)
+    console.log("POST:", course.postTestUrl)
     res.json({
-        ...course,
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        image: course.image,
+        price: course.price,
+        status: course.status,
+        type: course.type,
 
-        // ✅ สำคัญมาก
+        // 🔥 ตัวที่หายไป
+        preTestUrl: course.preTestUrl,
+        postTestUrl: course.postTestUrl,
+
+        teacher: course.teacher,
+        lessons: course.lessons,
+
         isEnrolled,
-        enrollmentStatus
+        enrollmentStatus,
+
+        createdAt: course.createdAt,
+        updatedAt: course.updatedAt
     })
 }
 /**

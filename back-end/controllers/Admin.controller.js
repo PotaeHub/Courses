@@ -622,48 +622,85 @@ export const updateCourseWithLessons = asyncHandler(async (req, res) => {
   });
 });
 export const RemoveCourses = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params
+  const courseId = Number(id)
 
-  if (!id || isNaN(id)) {
-    throw new AppError("Invalid course id.", 400);
+  if (!courseId || isNaN(courseId)) {
+    throw new AppError("Invalid course id.", 400)
   }
 
-  // 🔍 เช็กว่ามี course จริงไหม
   const course = await prisma.course.findUnique({
-    where: { id: Number(id) },
-  });
+    where: { id: courseId },
+  })
 
   if (!course) {
-    throw new AppError("Course not found.", 404);
+    throw new AppError("Course not found.", 404)
   }
 
-  // 🔐 Admin ลบได้ทุกคอร์ส | Teacher ลบได้เฉพาะของตัวเอง
+  // 🔐 permission
   if (req.user.role !== "ADMIN" && course.teacherId !== req.user.id) {
-    throw new AppError("You are not allowed to delete this course.", 403);
+    throw new AppError("You are not allowed to delete this course.", 403)
   }
 
+  // ===============================
+  // 💣 HARD DELETE (MANUAL CASCADE)
+  // ===============================
+
+  // 1️⃣ ลบ lessonProgress
+  await prisma.lessonProgress.deleteMany({
+    where: {
+      lesson: {
+        courseId
+      }
+    }
+  })
+
+  // 2️⃣ ลบ lessonVideo
+  await prisma.lessonVideo.deleteMany({
+    where: {
+      lesson: {
+        courseId
+      }
+    }
+  })
+
+  // 3️⃣ ลบ lesson
+  await prisma.lesson.deleteMany({
+    where: { courseId }
+  })
+
+  // 4️⃣ ลบ enrollment
+  await prisma.enrollment.deleteMany({
+    where: { courseId }
+  })
+
+  // 5️⃣ ลบ review
+  await prisma.review.deleteMany({
+    where: { courseId }
+  })
+
+  // 6️⃣ ลบ payment
+  await prisma.payment.deleteMany({
+    where: { courseId }
+  })
+
+  // 7️⃣ ลบ order
+  await prisma.order.deleteMany({
+    where: { courseId }
+  })
+
+  // 8️⃣ ลบ course (ตัวแม่)
   const deletedCourse = await prisma.course.delete({
-    where: { id: Number(id) },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      image: true,
-      price: true,
-      type: true,
-      categoryId: true,
-      createdAt: true,
-      updatedAt: true,
-      lessons: true,
-    },
-  });
+    where: { id: courseId }
+  })
 
   res.status(200).json({
     success: true,
-    message: "Course deleted successfully",
-    course: deletedCourse,
-  });
-});
+    message: "Course deleted completely (hard delete)",
+    course: deletedCourse
+  })
+})
+
 // Dashboard Stats (Optional)
 export const getDashboardStats = asyncHandler(async (req, res) => {
   const [userCount, courseCount, categoryCount, enrollmentCount, revenue] =

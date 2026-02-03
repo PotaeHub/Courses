@@ -137,7 +137,6 @@ const submit = async () => {
     if (loading.value) return
 
     if (!form.value.title.trim()) return alert('กรุณากรอกชื่อคอร์ส')
-    if (!form.value.categoryId) return alert('กรุณาเลือกหมวดหมู่คอร์ส')
     if (!form.value.price || form.value.price <= 0) return alert('ราคาต้องมากกว่า 0')
 
     try {

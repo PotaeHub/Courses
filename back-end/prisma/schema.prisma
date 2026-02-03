@@ -124,9 +124,10 @@ model Course {
   price       Float
   type        CourseType?
   status      CourseStatus @default(DRAFT)
-
-  teacher   User? @relation("TeacherCourses", fields: [teacherId], references: [id])
-  teacherId Int?
+  preTestUrl  String? // Google Form ก่อนเรียน
+  postTestUrl String? // Google Form หลังเรียน
+  teacher     User?        @relation("TeacherCourses", fields: [teacherId], references: [id])
+  teacherId   Int?
 
   category   Category? @relation(fields: [categoryId], references: [id])
   categoryId Int?

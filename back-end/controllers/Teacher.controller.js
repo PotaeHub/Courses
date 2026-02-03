@@ -2,6 +2,10 @@ import prisma, { PaymentStatus } from "../config/db.js";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { deleteFileIfExists } from "../utils/deleteFile.js";
+const isValidGoogleFormUrl = (url) => {
+  if (!url) return true // อนุญาตให้เป็น null / ว่าง
+  return /^https:\/\/docs\.google\.com\/forms\/.+/i.test(url)
+}
 // Teacher Dashboard
 export const getDashboard = asyncHandler(async (req, res) => {
   const teacherId = req.user.id;
@@ -142,11 +146,17 @@ export const getIDCourses = asyncHandler(async (req, res) => {
 });
 export const createTeacherCourse = asyncHandler(async (req, res) => {
   const teacherId = req.user.id;
-  const { title, description, price, status, categoryId } = req.body;
+  const { title, description, price, status, categoryId, preTestUrl, postTestUrl } = req.body;
 
   if (!title || price === undefined)
     throw new AppError("Title and price are required", 400);
 
+  if (
+    !isValidGoogleFormUrl(preTestUrl) ||
+    !isValidGoogleFormUrl(postTestUrl)
+  ) {
+    throw new AppError("Invalid Google Form URL", 400);
+  }
   const imageFile = req.files?.find((f) => f.fieldname === "image");
   const imageUrl = imageFile
     ? `/uploads/courses/images/${imageFile.filename}`
@@ -164,6 +174,8 @@ export const createTeacherCourse = asyncHandler(async (req, res) => {
         image: imageUrl,
         categoryId: categoryId ? Number(categoryId) : null,
         teacherId,
+        preTestUrl: preTestUrl || null,
+        postTestUrl: postTestUrl || null,
       },
     });
 
@@ -210,11 +222,16 @@ export const updateTeacherCourse = asyncHandler(async (req, res) => {
   const courseId = Number(req.params.id);
   if (isNaN(courseId)) throw new AppError("Invalid course ID", 400);
 
-  const { title, description, price, status, categoryId } = req.body;
+  const { title, description, price, status, categoryId, preTestUrl, postTestUrl, } = req.body;
   const courseStatus = ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(status)
     ? status
     : "DRAFT";
-
+  if (
+    !isValidGoogleFormUrl(preTestUrl) ||
+    !isValidGoogleFormUrl(postTestUrl)
+  ) {
+    throw new AppError("Invalid Google Form URL", 400);
+  }
   // หา course เดิมพร้อม lessons + videos
   const course = await prisma.course.findUnique({
     where: { id: courseId },
@@ -243,6 +260,8 @@ export const updateTeacherCourse = asyncHandler(async (req, res) => {
         status: courseStatus,
         image: newImageUrl,
         categoryId: categoryId ? Number(categoryId) : null,
+        preTestUrl: preTestUrl ?? course.preTestUrl,
+        postTestUrl: postTestUrl ?? course.postTestUrl,
       },
     });
 

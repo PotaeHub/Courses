@@ -1,6 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { X, Upload, Plus, Trash2, FileText, Video, Image as ImageIcon, AlertCircle } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted } from 'vue'
+import {
+    X, Plus, Trash2, FileText, Video, Image as ImageIcon, AlertCircle
+} from 'lucide-vue-next'
 import api from '../../service/api'
 
 const emit = defineEmits(['close', 'created'])
@@ -11,7 +13,12 @@ const isDragging = ref(false)
 const categories = ref([])
 const imagePreview = ref(null)
 const imageFile = ref(null)
-const imageError = ref('') // Error สำหรับรูปหน้าปก
+const imageError = ref('')
+
+const statusOptions = [
+    { label: 'Draft', value: 'DRAFT' },
+    { label: 'Published', value: 'PUBLISHED' }
+]
 
 const form = ref({
     title: '',
@@ -19,62 +26,63 @@ const form = ref({
     price: '',
     status: 'DRAFT',
     categoryId: '',
+    preTestUrl: '',
+    postTestUrl: ''
 })
 
 const lessons = ref([])
 
-const statusOptions = [
-    { label: 'Draft Mode', value: 'DRAFT' },
-    { label: 'Published', value: 'PUBLISHED' },
-    { label: 'Archived', value: 'ARCHIVED' },
-]
+/* ================= HELPERS ================= */
+// ป้องกัน memory leak
+const objectUrls = new Set()
+const createSafeUrl = (file) => {
+    const url = URL.createObjectURL(file)
+    objectUrls.add(url)
+    return url
+}
+onUnmounted(() => {
+    objectUrls.forEach(url => URL.revokeObjectURL(url))
+})
 
 /* ================= FETCH ================= */
 const fetchCategories = async () => {
     try {
         const res = await api.get('/teacher/categories')
         categories.value = res.data.data
-    } catch (err) {
-        console.error("Fetch categories failed", err)
+    } catch {
+        console.error('Fetch categories failed')
     }
 }
 onMounted(fetchCategories)
 
-/* ================= VALIDATION HELPERS ================= */
+/* ================= VALIDATE ================= */
+const googleFormRegex =
+    /^https:\/\/docs\.google\.com\/forms\/d\/e\/.+\/viewform/
+
+const isGoogleFormUrl = (url) => {
+    if (!url) return true
+    return googleFormRegex.test(url)
+}
+
 const validateImage = (file) => {
     imageError.value = ''
     if (!file) return false
     if (!file.type.startsWith('image/')) {
-        imageError.value = 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (PNG, JPG, WEBP)'
+        imageError.value = 'กรุณาเลือกไฟล์รูปภาพ'
         return false
     }
     if (file.size > 5 * 1024 * 1024) {
-        imageError.value = 'ขนาดรูปภาพต้องไม่เกิน 5MB'
+        imageError.value = 'รูปต้องไม่เกิน 5MB'
         return false
     }
     return true
 }
 
-const validateVideo = (file, index) => {
-    lessons.value[index].error = ''
-    if (!file) return false
-    if (!file.type.startsWith('video/')) {
-        lessons.value[index].error = 'กรุณาเลือกไฟล์วิดีโอเท่านั้น (MP4, MOV)'
-        return false
-    }
-    if (file.size > 100 * 1024 * 1024) {
-        lessons.value[index].error = 'ขนาดวิดีโอต้องไม่เกิน 100MB'
-        return false
-    }
-    return true
-}
-
-/* ================= HANDLERS ================= */
-// Image Handlers
+/* ================= IMAGE ================= */
 const handleImageFile = (file) => {
     if (validateImage(file)) {
         imageFile.value = file
-        imagePreview.value = URL.createObjectURL(file)
+        imagePreview.value = createSafeUrl(file)
     }
 }
 const onImageChange = (e) => handleImageFile(e.target.files[0])
@@ -83,86 +91,96 @@ const onDrop = (e) => {
     handleImageFile(e.dataTransfer.files[0])
 }
 
-// Lesson Video Handlers
-const onLessonVideoChange = (e, index) => {
-    const file = e.target.files[0]
-    if (validateVideo(file, index)) {
-        lessons.value[index].videoFile = file
-        lessons.value[index].videoFileName = file.name
-        lessons.value[index].videoPreview = URL.createObjectURL(file)
-    }
-}
-const onLessonVideoDrop = (e, index) => {
-    e.preventDefault()
-    lessons.value[index].isDragging = false
-    const file = e.dataTransfer.files[0]
-    if (validateVideo(file, index)) {
-        lessons.value[index].videoFile = file
-        lessons.value[index].videoFileName = file.name
-        lessons.value[index].videoPreview = URL.createObjectURL(file)
-    }
-}
-
+/* ================= LESSON ================= */
 const addLesson = () => {
     lessons.value.push({
         title: '',
         content: '',
         videoFile: null,
-        videoFileName: '',
-        isDragging: false,
         videoPreview: null,
-        error: '' // สำหรับเก็บ error message แยกแต่ละบทเรียน
+        isDragging: false,
+        error: ''
     })
 }
 
-const removeLesson = (index) => lessons.value.splice(index, 1)
+const handleLessonVideo = (file, index) => {
+    const lesson = lessons.value[index]
+    lesson.error = ''
 
-const getFileUrl = (path) => {
-    if (!path) return null
-    const base = import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '')
-    return `${base}${path.startsWith('/') ? '' : '/'}${path}`
+    if (!file) return
+    if (!file.type.startsWith('video/')) {
+        lesson.error = 'ต้องเป็นไฟล์วิดีโอเท่านั้น'
+        return
+    }
+    if (file.size > 100 * 1024 * 1024) {
+        lesson.error = 'วิดีโอต้องไม่เกิน 100MB'
+        return
+    }
+
+    lesson.videoFile = file
+    lesson.videoPreview = createSafeUrl(file)
 }
+
+const onLessonVideoChange = (e, index) =>
+    handleLessonVideo(e.target.files[0], index)
+
+const onLessonVideoDrop = (e, index) => {
+    lessons.value[index].isDragging = false
+    handleLessonVideo(e.dataTransfer.files[0], index)
+}
+
+const removeLesson = (i) => lessons.value.splice(i, 1)
 
 /* ================= SUBMIT ================= */
 const submit = async () => {
-    // Basic Validation before submit
-    if (!form.value.title) { alert('กรุณาระบุชื่อคอร์ส'); return }
-    if (!imageFile.value) { imageError.value = 'กรุณาอัปโหลดรูปหน้าปกคอร์ส'; return }
+    if (!form.value.title) return alert('กรุณากรอกชื่อคอร์ส')
+    if (!imageFile.value) {
+        imageError.value = 'กรุณาอัปโหลดรูปหน้าปก'
+        return
+    }
+    if (!form.value.categoryId) return alert('กรุณาเลือกหมวดหมู่')
 
+    if (
+        !isGoogleFormUrl(form.value.preTestUrl) ||
+        !isGoogleFormUrl(form.value.postTestUrl)
+    ) {
+        return alert('แบบทดสอบต้องเป็น Google Form เท่านั้น')
+    }
+
+    loading.value = true
     try {
-        loading.value = true
-        const formData = new FormData()
-        formData.append('title', form.value.title)
-        formData.append('description', form.value.description)
-        formData.append('price', form.value.price)
-        formData.append('status', form.value.status)
-        formData.append('categoryId', form.value.categoryId)
+        const fd = new FormData()
+        Object.entries(form.value).forEach(([k, v]) =>
+            fd.append(k, v)
+        )
+        fd.append('image', imageFile.value)
 
-        if (imageFile.value) formData.append('image', imageFile.value)
+        fd.append(
+            'lessons',
+            JSON.stringify(
+                lessons.value.map(l => ({
+                    title: l.title,
+                    content: l.content
+                }))
+            )
+        )
 
-        const cleanLessons = lessons.value.map(l => ({
-            title: l.title,
-            content: l.content
-        }))
-        formData.append('lessons', JSON.stringify(cleanLessons))
-
-        lessons.value.forEach((lesson, index) => {
-            if (lesson.videoFile) {
-                formData.append(`video_lesson_${index}`, lesson.videoFile)
-            }
+        // backend ต้อง map ตาม index
+        lessons.value.forEach((l, i) => {
+            if (l.videoFile) fd.append(`video_lesson_${i}`, l.videoFile)
         })
 
-        await api.post('/teacher/course', formData)
+        await api.post('/teacher/course', fd)
         emit('created')
         emit('close')
-    } catch (err) {
-        console.error(err)
-        alert('Create failed')
+    } catch (e) {
+        alert(e.response?.data?.message || 'Create failed')
     } finally {
         loading.value = false
     }
 }
 </script>
+
 
 <template>
     <div
@@ -182,8 +200,8 @@ const submit = async () => {
             </div>
 
             <div class="flex-1 overflow-y-auto p-8 pt-4 space-y-8 custom-scrollbar bg-slate-50/20">
-
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
                     <div class="lg:col-span-7 space-y-6">
                         <div class="space-y-4">
                             <label
@@ -205,6 +223,12 @@ const submit = async () => {
                                     <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                                 </select>
                             </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <input v-model="form.preTestUrl" placeholder="Pre-test (Google Form)"
+                                    class="input-modern" />
+                                <input v-model="form.postTestUrl" placeholder="Post-test (Google Form)"
+                                    class="input-modern" />
+                            </div>
                         </div>
 
                         <hr class="border-slate-100" />
@@ -224,7 +248,6 @@ const submit = async () => {
                             <div class="grid grid-cols-1 gap-4">
                                 <div v-for="(lesson, i) in lessons" :key="i"
                                     class="group relative bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-md transition-all animate-in slide-in-from-top-2">
-
                                     <div class="flex justify-between mb-4">
                                         <span
                                             class="bg-slate-50 px-3 py-1 rounded-lg text-[10px] font-black text-slate-400 border border-slate-100">LESSON
@@ -270,7 +293,7 @@ const submit = async () => {
                                                 </button>
                                             </div>
                                             <p v-if="lesson.error"
-                                                class="text-[10px] text-red-500 font-black mt-1.5 flex items-center gap-1 ml-1 animate-in fade-in">
+                                                class="text-[10px] text-red-500 font-black mt-1.5 flex items-center gap-1 ml-1">
                                                 <AlertCircle :size="10" /> {{ lesson.error }}
                                             </p>
                                         </div>
@@ -299,7 +322,6 @@ const submit = async () => {
                                 <label
                                     class="block text-xs font-black uppercase tracking-widest text-slate-400 ml-2">Course
                                     Cover Image</label>
-
                                 <div @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
                                     @drop.prevent="onDrop"
                                     class="relative aspect-[4/3] border-3 border-dashed rounded-[2.5rem] transition-all flex flex-col items-center justify-center overflow-hidden group shadow-inner"
@@ -317,7 +339,6 @@ const submit = async () => {
                                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
                                             Recommended: 1600 x 1200 px</p>
                                     </div>
-
                                     <img v-else :src="imagePreview" class="w-full h-full object-cover" />
                                     <input type="file" accept="image/*"
                                         class="absolute inset-0 opacity-0 cursor-pointer" @change="onImageChange" />
@@ -328,7 +349,7 @@ const submit = async () => {
                                     </button>
                                 </div>
                                 <p v-if="imageError"
-                                    class="text-xs text-red-500 font-black ml-4 flex items-center gap-1.5 animate-in slide-in-from-left-2">
+                                    class="text-xs text-red-500 font-black ml-4 flex items-center gap-1.5">
                                     <AlertCircle :size="14" /> {{ imageError }}
                                 </p>
                             </div>
@@ -368,24 +389,11 @@ const submit = async () => {
         </div>
     </div>
 </template>
-
 <style scoped>
-@import "tailwindcss";
-
-.input-modern {
-    @apply w-full px-6 py-4 rounded-2xl bg-white border-2 border-slate-100 font-bold text-slate-700 outline-none transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 placeholder:text-slate-300;
-}
-
-.input-sub {
-    @apply w-full px-5 py-3 rounded-xl bg-slate-50 border border-transparent font-bold text-sm text-slate-600 outline-none transition-all focus:bg-white focus:border-blue-200 placeholder:text-slate-400/60;
-}
-
-.btn-primary {
-    @apply py-4 bg-blue-600 text-white rounded-[1.5rem] font-black shadow-xl shadow-blue-100 hover:bg-blue-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center disabled:opacity-50 disabled:transform-none;
-}
+@import 'tailwindcss';
 
 .custom-scrollbar::-webkit-scrollbar {
-    width: 5px;
+    width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -393,6 +401,41 @@ const submit = async () => {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 rounded-full;
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+}
+
+/* Base Input Styles */
+.input-modern {
+    @apply w-full px-6 py-4 bg-white border border-slate-200 rounded-2xl text-slate-700 font-medium transition-all duration-300 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 shadow-sm;
+}
+
+.input-sub {
+    @apply w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-700 text-sm font-medium transition-all duration-300 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-400/5;
+}
+
+.btn-primary {
+    @apply flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Animation */
+.animate-in {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 </style>
