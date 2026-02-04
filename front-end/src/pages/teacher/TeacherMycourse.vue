@@ -6,7 +6,8 @@ import api from '../../service/api'
 import CreateCourseModal from '../../components/Teacher/CreateCourseModal.vue'
 import EditCourseModal from '../../components/Teacher/EditCourseModal.vue'
 import DeleteConfirmModal from '../../components/Teacher/DeleteConfirmModal.vue'
-
+import { useAlert } from '@/composables/useAlert'
+const { success, error } = useAlert()
 const searchQuery = ref('')
 const activeTab = ref('All')
 const showCreate = ref(false)
@@ -28,17 +29,24 @@ const onEdit = (course) => {
     showEdit.value = true
 }
 const confirmDelete = async () => {
+    if (!courseToDelete.value) return
+
     loading.value = true
     try {
         await api.delete(`/teacher/course/${courseToDelete.value.id}`)
-        fetchCourses();
+
         showDeleteModal.value = false
+        await success('Deleted', 'ลบคอร์สเรียบร้อยแล้ว')
+
+        fetchCourses()
+
     } catch (err) {
-        alert('ลบไม่สำเร็จ');
+        error(err,'ไม่สามารถลบคอร์สได้')
     } finally {
         loading.value = false
     }
 }
+
 const fetchCategories = async () => {
     try {
         const res = await api.get('/teacher/categories')
@@ -155,8 +163,6 @@ const filteredCourses = computed(() => {
                                 Course Information</th>
                             <th class="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                                 Student Stats</th>
-                            <th class="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                Earnings</th>
                             <th
                                 class="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">
                                 Status</th>

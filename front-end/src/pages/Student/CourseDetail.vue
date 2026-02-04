@@ -62,11 +62,10 @@ const togglePlay = () => {
 const onTimeUpdate = () => {
     if (!videoRef.value) return
     const current = videoRef.value.currentTime
-    // ป้องกันการลากข้าม (Skip)
+   
     if (current > lastTime.value && current - lastTime.value < 1.2) {
         lastTime.value = current
     }
-    // ต้องดูอย่างน้อย 95% ถึงจะจบ
     const duration = videoRef.value.duration || 0
     if (duration && lastTime.value >= duration * 0.95) {
         canComplete.value = true
@@ -104,7 +103,7 @@ const markCompleted = async () => {
             watchTime: Math.floor(lastTime.value)
         })
 
-        // Update local state
+
         lessons.value[activeIndex.value].isCompleted = true
 
         await Swal.fire({
@@ -115,7 +114,6 @@ const markCompleted = async () => {
             showConfirmButton: false
         })
 
-        // Auto-play next lesson if available
         if (activeIndex.value < lessons.value.length - 1) {
             openLesson(activeIndex.value + 1)
         }

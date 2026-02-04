@@ -83,7 +83,7 @@ export const getTeacherCourses = asyncHandler(async (req, res) => {
 
     return {
       id: course.id,
-      name: course.title,
+      title: course.title,
       description: course.description,
       image: course.image,
       price: course.price,
@@ -400,37 +400,62 @@ export const updateTeacherProfile = async (req, res) => {
   }
 };
 export const removeCourse = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const course = await prisma.course.findUnique({
-    where: { id: Number(id) },
-  });
-  if (!course) {
-    throw new AppError("Course not found.", 404);
+  const { id } = req.params
+  const courseId = Number(id)
+  const userId = req.user.id
+
+  if (isNaN(courseId)) {
+    throw new AppError("Invalid course id", 400)
   }
 
-  const deletedCourse = await prisma.course.delete({
-    where: {
-      id: Number(id),
+  // 1. หา course
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: {
+      enrollments: true,
     },
+  })
+
+  if (!course) {
+    throw new AppError("Course not found.", 404)
+  }
+
+  // 2. เช็กเจ้าของ
+  if (course.teacherId !== userId) {
+    throw new AppError("You are not authorized to delete this course.", 403)
+  }
+
+  // 3. ถ้ามีนักเรียน ห้ามลบ
+  if (course.enrollments.length > 0) {
+    res.status(400).json({
+      success: false,
+      message: "ไม่สามารถลบคอร์สที่มีนักเรียนลงทะเบียนได้"
+    })
+    return
+  }
+
+  // 4. ลบ course
+  const deletedCourse = await prisma.course.delete({
+    where: { id: courseId },
     select: {
       id: true,
       title: true,
       description: true,
       image: true,
       price: true,
-      type: true,
+      status: true,
       categoryId: true,
       createdAt: true,
-      updatedAt: true,
-      lessons: true,
     },
-  });
+  })
+
   res.status(200).json({
     success: true,
     message: "Course deleted successfully",
     course: deletedCourse,
-  });
-});
+  })
+})
+
 //  Teacher Categories
 export const getCategories = asyncHandler(async (req, res) => {
   const categories = await prisma.category.findMany();
